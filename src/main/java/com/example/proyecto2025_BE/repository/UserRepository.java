@@ -47,6 +47,25 @@ public interface UserRepository extends JpaRepository<User, Long>{
 	Page<UserRankingProjection> findAllUsersWithRank(Pageable pageable);
 
 	@Query(value = """
+    SELECT ranked.position
+    FROM (
+        SELECT 
+            u_inner.id,
+            ROW_NUMBER() OVER (
+                ORDER BY COALESCE(SUM(a_inner.score), 0) DESC, u_inner.id ASC
+            ) AS position
+        FROM users u_inner
+        LEFT JOIN answer a_inner 
+            ON u_inner.id = a_inner.user_id
+            AND a_inner.response_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+            AND a_inner.response_date <  DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
+        GROUP BY u_inner.id
+    ) ranked
+    WHERE ranked.id = :userId
+    """, nativeQuery = true)
+	Integer findUserRankWeeklyPosition(@Param("userId") Long userId);
+
+	@Query(value = """
     SELECT 
         ranked.id AS id,
         u.username AS username,
@@ -62,8 +81,8 @@ public interface UserRepository extends JpaRepository<User, Long>{
         FROM users u_inner
         LEFT JOIN answer a_inner 
             ON u_inner.id = a_inner.user_id
-            AND a_inner.fecha_respuesta >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
-            AND a_inner.fecha_respuesta <  DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
+            AND a_inner.response_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+            AND a_inner.response_date <  DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
         GROUP BY u_inner.id
     ) ranked
     JOIN users u ON u.id = ranked.id
@@ -75,25 +94,6 @@ public interface UserRepository extends JpaRepository<User, Long>{
     """,
 			nativeQuery = true)
 	Page<UserRankingProjection> findWeeklyRanking(Pageable pageable);
-
-	@Query(value = """
-    SELECT ranked.position
-    FROM (
-        SELECT 
-            u_inner.id,
-            ROW_NUMBER() OVER (
-                ORDER BY COALESCE(SUM(a_inner.score), 0) DESC, u_inner.id ASC
-            ) AS position
-        FROM users u_inner
-        LEFT JOIN answer a_inner 
-            ON u_inner.id = a_inner.user_id
-            AND a_inner.fecha_respuesta >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
-            AND a_inner.fecha_respuesta <  DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
-        GROUP BY u_inner.id
-    ) ranked
-    WHERE ranked.id = :userId
-    """, nativeQuery = true)
-	Integer findUserRankWeeklyPosition(@Param("userId") Long userId);
 
 	Optional<User> findByUsername(String username);
 
