@@ -36,6 +36,9 @@ llm:
 jwt:
   secret: ${JWT_SECRET_KEY}
   expiration: 43200000
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID:}
 #logging:
 #  level:
 #    ROOT: TRACE

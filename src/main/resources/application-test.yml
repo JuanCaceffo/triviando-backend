@@ -19,3 +19,6 @@ spring:
 jwt:
   secret: clavesecretaparatesteosgodines123432e
   expiration: 43200000
+
+google:
+  client-id: test-client-id
