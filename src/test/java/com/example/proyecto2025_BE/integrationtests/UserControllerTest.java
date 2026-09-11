@@ -107,6 +107,7 @@ public class UserControllerTest {
         User user = User.builder()
                 .name("Pepe")
                 .lastName("Palala")
+                .username("pepe.palala")
                 .build();
 
         user = dao.save(user);
@@ -124,7 +125,8 @@ public class UserControllerTest {
                         .contentType("application/json")
                         .content(requestBody)
                         .header("Authorization", "Bearer " + jwtToken))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
 
         User updatedUser = dao.findById(user.getId()).orElseThrow();
         assertEquals("Emiliano", updatedUser.getName());

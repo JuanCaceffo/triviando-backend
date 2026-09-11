@@ -64,7 +64,7 @@ public class UserService {
                 .orElseThrow(() -> NotFoundException.build(Exceptions.NOT_FOUND));
     }
 
-    public User update(User updatedUser) {
+    public LoginResponseDTO update(User updatedUser) {
         User existingUser = ValidarUsuario(updatedUser);
 
         Optional.ofNullable(updatedUser.getName()).ifPresent(existingUser::setName);
@@ -73,7 +73,17 @@ public class UserService {
         Optional.ofNullable(updatedUser.getCountryCode()).ifPresent(existingUser::setCountryCode);
         Optional.ofNullable(updatedUser.getJoinDate()).ifPresent(existingUser::setJoinDate);
         Optional.ofNullable(updatedUser.getBirthDate()).ifPresent(existingUser::setBirthDate);
-        return userRepository.save(existingUser);
+        User savedUser = userRepository.save(existingUser);
+
+        String token = jwtUtils.generateToken(Map.of(
+                "id", savedUser.getId(),
+                "fullname", savedUser.getFullName(),
+                "account", savedUser.getAccount()
+            ),
+            savedUser.getUsername()
+        );
+
+        return LoginResponseDTO.builder().token(token).build();
     }
 
     private User ValidarUsuario(User updatedUser) {
@@ -218,12 +228,6 @@ public class UserService {
 
     @Transactional
     public LoginResponseDTO login(@Valid LoginRequestDTO user) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        user.username(),
-                        user.password()
-                )
-        );
 
         User fetchedUser = findByUsername(user.username());
 

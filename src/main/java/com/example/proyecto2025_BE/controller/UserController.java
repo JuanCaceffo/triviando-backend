@@ -81,13 +81,14 @@ public class UserController {
                     mediaType = "application/json",
                     schema = @Schema(implementation = UpdateUserRequest.class)))
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Usuario actualizado exitosamente"),
+            @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = Exceptions.NOT_FOUND,
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse4XX.class)))})
-    public ResponseEntity<Void> update(@RequestBody User user) {
-        this.userService.update(user);
+        public ResponseEntity<LoginResponseDTO> update(@RequestBody User user) {
+                LoginResponseDTO loginResponseDTO = this.userService.update(user);
 
-        return ResponseEntity.noContent().build();
+                return ResponseEntity.ok(loginResponseDTO);
     }
 
     @DeleteMapping("/{id}")
