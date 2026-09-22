@@ -119,6 +119,9 @@ public class User {
 	//TODO: Crear entidades para el manejo de roles y con privilegios internos
 	@Builder.Default
 	private List<String> privileges = List.of("ROLE_USER");
+	
+	@Builder.Default
+	private boolean googleAccount = false; 
 
 	@JsonProperty("age")
 	public Integer getAge() {

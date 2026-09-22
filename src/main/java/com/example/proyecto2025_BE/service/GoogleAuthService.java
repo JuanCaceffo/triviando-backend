@@ -82,6 +82,7 @@ public class GoogleAuthService {
                 .email(payload.getEmail())
                 .username("google_" + payload.getSubject())
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .googleAccount(true)
                 .build();
 
         return userRepository.save(user);
