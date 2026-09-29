@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
@@ -39,6 +40,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
+        @SecurityRequirements
     @Operation(summary = "Registrar usuario", description = "Se registra un nuevo usuario en el sistema")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Datos del usuario para el registro",
@@ -102,6 +104,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
+        @SecurityRequirements
     @Operation(summary = "Login de usuario", description = "Autentica a un usuario basado en su nombre de usuario y contraseña")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Credenciales del usuario para el login", required = true,

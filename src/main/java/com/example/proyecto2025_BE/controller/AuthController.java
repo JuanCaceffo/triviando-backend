@@ -3,6 +3,7 @@ package com.example.proyecto2025_BE.controller;
 import com.example.proyecto2025_BE.model.dto.login.GoogleLoginRequest;
 import com.example.proyecto2025_BE.model.dto.login.LoginResponseDTO;
 import com.example.proyecto2025_BE.service.GoogleAuthService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ public class AuthController {
     private final GoogleAuthService googleAuthService;
 
     @PostMapping("/google")
+    @SecurityRequirements
     public ResponseEntity<LoginResponseDTO> loginWithGoogle(
             @Valid @RequestBody GoogleLoginRequest request) {
         return ResponseEntity.ok(googleAuthService.authenticate(request.credential()));
