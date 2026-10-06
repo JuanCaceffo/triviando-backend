@@ -24,7 +24,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
   data:
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI}
+      uri: mongodb://${MONGO_HOST}:${MONGO_PORT}/${MONGO_NAME}
       auto-index-creation: true
 
 llm:
