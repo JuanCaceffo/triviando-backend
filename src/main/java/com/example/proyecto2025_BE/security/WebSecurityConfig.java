@@ -54,6 +54,9 @@ public class WebSecurityConfig {
                                 .requestMatchers(HttpMethod.POST,"/users/login").permitAll()
                                 .requestMatchers(HttpMethod.POST,"/users").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/google").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/auth/forgot-password").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/auth/verify-reset-code").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/auth/reset-password").permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",
                                         "/v3/api-docs/**",

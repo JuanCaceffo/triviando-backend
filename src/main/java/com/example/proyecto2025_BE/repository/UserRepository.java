@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long>{
 
 	public Optional<User> findByEmail(String email);
 
+	public Optional<User> findByEmailIgnoreCase(String email);
+
 	@Query(value =
 			"SELECT position FROM (" +
 					"  SELECT u.id, SUM(a.score) as total_score, ROW_NUMBER() OVER (ORDER BY SUM(a.score) DESC, u.id ASC) as position " +
