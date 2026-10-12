@@ -1,0 +1,135 @@
+# AGENTS.md
+
+Guía para agentes de IA que trabajan en este repositorio.
+
+## Visión general
+
+**Triviando** es una API REST que crea y regenera quizzes (preguntas) mediante IA. También gestiona usuarios, autenticación (JWT + Google), suscripciones FREE/PREMIUM (MercadoPago), rankings, estadísticas y rachas.
+
+Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo (Vercel). Detalles de proceso (JIRA, Git Flow completo) están en `README.md`.
+
+## Stack y arquitectura
+
+- **Java 21 + Spring Boot 3.4.3** (Maven, wrapper `mvnw`), puerto `8080`, context path **`/api/v1`**
+- **IA**: LangChain4j (`AiServices`) con OpenAI `gpt-4o-mini` (temperature 0, JSON schema estricto, chat memory de 10 mensajes)
+- **Auth**: JWT (jjwt) + BCrypt + Google Sign-In; **Pagos**: MercadoPago; **Docs**: Swagger (`/api/v1/swagger-ui`)
+- **Perfiles**: `dev` (default), `prod`, `test` (`src/main/resources/application*.yml`)
+- **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql + mongo)
+
+### Paquetes base: `src/main/java/com/example/proyecto2025_BE/`
+
+| Paquete | Contenido |
+|---|---|
+| `controller` | Endpoints REST (Auth, User, Question, Answer, Subscription) |
+| `service` | Lógica de negocio (`IQuestion`, `LLMApiClientService`, `UserService`, etc.) |
+| `repository` | Repositorios Spring Data (JPA y Mongo) |
+| `model` | Entidades, DTOs (`model/dto`), prompters (`model/prompter`), MercadoPago (`model/mp`), rachas (`model/racha`) |
+| `configuration` | Beans: `LLMConfig`, `MPConfig`, `MySQLConfig`, Swagger, CORS, serializadores |
+| `security` | `WebSecurityConfig`, `JwtUtil`, `AuthTokenFilter`, `UserContext` |
+| `views` | DTOs de request/response de la API + esquemas Swagger |
+| `constants` | Prompts del LLM (`LLM.java`), mensajes de error, patrones |
+| `exceptions` | `GlobalExceptionHandler` |
+
+## Arquitectura de BD dual
+
+- **MySQL 8 + JPA/Hibernate** (`ddl-auto: update` — **no hay Flyway ni Liquibase**; el esquema evoluciona por entidades):
+  - `User` (`users`), `Answer`, `Option` (`options`), `PasswordResetToken` (`password_reset_tokens`)
+- **MongoDB** (`@Document`):
+  - `Pregunta` (`preguntas`), `Respuesta` (`respuestas_usuario`), `Feedback`
+- **Tests**: H2 en memoria (`application-test.yml`)
+
+Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios en preguntas/feedback = modificar entidades `@Document`. No esperar migraciones.
+
+## Endpoints clave (prefijo `/api/v1`)
+
+### Auth y usuarios
+- `POST /users` — registro
+- `POST /users/login` — login (devuelve JWT)
+- `POST /auth/google` — login con Google ID token
+- `POST /auth/forgot-password` → `POST /auth/verify-reset-code` → `POST /auth/reset-password` — recuperación vía e-mail (SMTP)
+- `GET /users/{id}`, `DELETE /users/{id}`, `GET /users/statistics/{usuarioId}`, `GET /users/score/{userId}`
+- `GET /users/ranking`, `GET /users/ranking/{userId}`, `GET /users/ranking-semanal[/{userId}]`, `GET /users/racha/{userId}`
+
+### Preguntas (quiz)
+- `POST /preguntas/generate` — **genera preguntas con IA** (body: `Prompter` con campo `promptType`)
+- `GET /preguntas?userId=&topico=` — preguntas no respondidas (opcionalmente por tópico)
+- `GET /preguntas/{id}`, `GET /preguntas/topicos/{userId}` — conteo por tópico
+- `POST /preguntas/send-feedback` — feedback sobre una pregunta
+
+### Respuestas y suscripciones
+- `POST /answers` — responde una pregunta
+- `POST /suscriptions?email=` — crea preferencia de checkout MercadoPago
+- `POST /suscriptions/payment` — webhook de notificación de pago
+
+Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`); todo el resto requiere token Bearer.
+
+## Flujo de generación con IA
+
+1. `POST /preguntas/generate` → `QuestionController.generate(Prompter)` → `LLMApiClientService.generate(prompter, role, userId)`
+2. `model/prompter/Prompter` es polimórfico según el campo `promptType` del body:
+   - **`topicPrompter`** (`TopicPrompter`): tópico nuevo, 10 preguntas, rechaza si el tópico ya existe, genera emoji con una 2da llamada al LLM
+   - **`questionPrompter`** (`QuestionPrompter`): tópico existente, 5 preguntas, reutiliza el emoji
+3. Ambos validan cuotas diarias del plan FREE (`validateGeneration`, config en `api.questions.*`: dev 5 tópicos/100 preguntas por día, prod 2/25)
+4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
+5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
+6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`
+
+## Comandos
+
+```bash
+# Desarrollo (levanta app + MySQL + MongoDB)
+docker-compose up --build -d
+
+# O solo la app (requiere DBs corriendo y .env presente)
+./mvnw spring-boot:run          # Windows: mvnw.cmd spring-boot:run
+
+# Tests
+./mvnw test                     # ./mvnw verify  → agrega reporte JaCoCo
+
+# Build
+./mvnw clean package            # genera target/proyecto2025-be-*.jar
+
+# Swagger
+# http://localhost:8080/api/v1/swagger-ui
+```
+
+No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
+
+## Configuración y secretos
+
+- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `FE_DOMAIN`
+- **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
+- La API key de OpenAI se inyecta en `LLMConfig` (`@ConfigurationProperties(prefix = "llm")`)
+
+## Instrucciones para modificar el código
+
+### Dónde agregar cada cosa
+- **Nuevo endpoint** → `controller/` (+ anotaciones Swagger) → lógica en `service/` → acceso a datos en `repository/`
+- **Nueva entidad MySQL** → `model/` con `@Entity` + repositorio JPA en `repository/`
+- **Nueva entidad Mongo** → `model/` con `@Document` + repositorio `MongoRepository`
+- **Nuevo DTO de request/response de la API** → `views/` (paquete por recurso: `views/users/...`, `views/questions/...`); DTOs internos del LLM → `model/dto/llm/`
+- **Configuración nueva** → `configuration/` (o `application*.yml` si es por perfil)
+- **Errores** → mensajes en `constants/Exceptions.java`, manejo en `exceptions/GlobalExceptionHandler.java`
+- **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/temperatura en `LLMConfig` + `application-{dev,prod}.yml`
+
+### Testing (obligatorio)
+- Todo cambio funcional debe llegar con tests: unitarios en `src/test/.../unittests/`, de integración en `integrationtests/` (siguiendo los patrones de los tests existentes)
+- Ejecutar `./mvnw verify` antes de dar el cambio por terminado (compila + tests + JaCoCo)
+
+### Seguridad
+- **No modificar** `WebSecurityConfig`, `JwtUtil`, `AuthTokenFilter`, `AuthEntryPointJwt` sin revisión y justificación explícita: controlan qué rutas son públicas y cómo se valida el JWT
+- Al agregar un endpoint nuevo, decidir explícitamente si va en la lista de `permitAll()` o queda protegido
+- El contexto de usuario (rol/ID) se lee con `security/UserContext` — no confiar en datos de usuario enviados por el body si vienen del token
+- Validar inputs (`spring-boot-starter-validation`, `@Valid`/`@Validated`)
+
+### Estilo
+- Inglés para identificadores de código, dominio en español (`Pregunta`, `Prompter`, `topico`) — respetar la nomenclatura existente
+- Lombok (`@Data`, `@RequiredArgsConstructor`, `@SuperBuilder`) en lugar de boilerplate manual
+- Interfaces de servicio para dependencias de controller (ej. `IQuestion`)
+
+## Convenciones Git (resumen)
+
+- **Git Flow**: `develop` como rama de integración, `main` solo para producción; features se ramifican desde `develop` y se fusionan mediante PR hacia `develop`; releases se marcan con tags `vX.Y.Z`
+- **Ramas**: `TIPO/SCRUM-N°TAREA-BREVE-DESCRIPCIÓN` (ej. `DOCS/SCRUM-9-definir-convenciones`)
+- **Commits** con prefijo: `[FEATURE]`, `[FIX]`, `[IMPROVEMENT]`, `[DOCS]`, `[REFACTOR]`, `[TEST]`, `[HOTFIX]`
+- Flujo JIRA (To-Do → In Progress → Code Review → Done) y detalles completos: ver `README.md`
