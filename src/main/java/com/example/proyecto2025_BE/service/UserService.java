@@ -23,6 +23,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -229,7 +230,12 @@ public class UserService {
     @Transactional
     public LoginResponseDTO login(@Valid LoginRequestDTO user) {
 
-        User fetchedUser = findByUsername(user.username());
+        User fetchedUser = userRepository.findByUsername(user.username())
+                .orElseThrow(() -> new BadCredentialsException(Exceptions.INVALID_CREDENTIALS));
+
+        if (user.password() == null || !encoder.matches(user.password(), fetchedUser.getPassword())) {
+            throw new BadCredentialsException(Exceptions.INVALID_CREDENTIALS);
+        }
 
         String token = jwtUtils.generateToken(Map.of(
                         "id", fetchedUser.getId(),

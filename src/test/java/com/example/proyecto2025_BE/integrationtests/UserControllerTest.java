@@ -1,5 +1,6 @@
 package com.example.proyecto2025_BE.integrationtests;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.User;
 import com.example.proyecto2025_BE.model.dto.StatsResponse;
@@ -474,6 +475,44 @@ public class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
                 .andExpect(jsonPath("$.token").isString());
+    }
+
+    @Test
+    @DisplayName("Cuando la contraseña es incorrecta, el sistema devuelve 401 con error de credenciales")
+    void loginWithWrongPasswordTest() throws Exception {
+        User requestBody = User.builder()
+                .username("juanceto01")
+                .password("contraseñaIncorrecta")
+                .joinDate(LocalDateTime.now())
+                .build();
+
+        String jsonBody = mapper.writeValueAsString(requestBody);
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value(Exceptions.INVALID_CREDENTIALS));
+    }
+
+    @Test
+    @DisplayName("Cuando el usuario no existe, el sistema devuelve 401 con el mismo error de credenciales")
+    void loginWithUnknownUsernameTest() throws Exception {
+        User requestBody = User.builder()
+                .username("usuarioInexistente")
+                .password("Pelele")
+                .joinDate(LocalDateTime.now())
+                .build();
+
+        String jsonBody = mapper.writeValueAsString(requestBody);
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value(Exceptions.INVALID_CREDENTIALS));
     }
 
     String crearUser(User user, String pass) {

@@ -1,5 +1,6 @@
 package com.example.proyecto2025_BE.unittests;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.repository.ResponseRepository;
 import com.example.proyecto2025_BE.repository.UserRepository;
 import com.example.proyecto2025_BE.exceptions.ConflictException;
@@ -7,6 +8,9 @@ import com.example.proyecto2025_BE.exceptions.NotFoundException;
 import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.User;
 import com.example.proyecto2025_BE.model.dto.StatsResponse;
+import com.example.proyecto2025_BE.model.dto.login.LoginRequestDTO;
+import com.example.proyecto2025_BE.model.dto.login.LoginResponseDTO;
+import com.example.proyecto2025_BE.security.JwtUtil;
 import com.example.proyecto2025_BE.service.UserService;
 import com.example.proyecto2025_BE.utils.UserRankingProjection;
 import lombok.AllArgsConstructor;
@@ -17,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.*;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -33,6 +39,12 @@ public class UserServiceTest {
 
     @Mock
     private ResponseRepository answerDao;
+
+    @Mock
+    private PasswordEncoder encoder;
+
+    @Mock
+    private JwtUtil jwtUtils;
 
     @InjectMocks
     private UserService userService;
@@ -380,6 +392,122 @@ public class UserServiceTest {
 
         when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(user));
         assertThrows(ConflictException.class, () -> userService.validateUsernameEmail(user));
+    }
+
+    @Test
+    @DisplayName("Login con credenciales válidas devuelve el token JWT")
+    void login_WithValidCredentials_ShouldReturnToken() {
+        // Arrange
+        String rawPassword = "Pelele";
+        String encodedPassword = "$2a$10$hashedPassword";
+        User user = User.builder()
+                .id(1L)
+                .username("juanceto01")
+                .password(encodedPassword)
+                .build();
+
+        when(userRepository.findByUsername("juanceto01")).thenReturn(Optional.of(user));
+        when(encoder.matches(rawPassword, encodedPassword)).thenReturn(true);
+        when(jwtUtils.generateToken(anyMap(), eq("juanceto01"))).thenReturn("jwt-token");
+
+        // Act
+        LoginResponseDTO response = userService.login(LoginRequestDTO.builder()
+                .username("juanceto01")
+                .password(rawPassword)
+                .build());
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("jwt-token", response.token());
+        verify(jwtUtils, times(1)).generateToken(anyMap(), eq("juanceto01"));
+    }
+
+    @Test
+    @DisplayName("Login con contraseña incorrecta lanza BadCredentialsException y no genera token")
+    void login_WithWrongPassword_ShouldThrowBadCredentials() {
+        // Arrange
+        String encodedPassword = "$2a$10$hashedPassword";
+        User user = User.builder()
+                .id(1L)
+                .username("juanceto01")
+                .password(encodedPassword)
+                .build();
+
+        when(userRepository.findByUsername("juanceto01")).thenReturn(Optional.of(user));
+        when(encoder.matches("contraseñaIncorrecta", encodedPassword)).thenReturn(false);
+
+        // Act & Assert
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> userService.login(LoginRequestDTO.builder()
+                        .username("juanceto01")
+                        .password("contraseñaIncorrecta")
+                        .build()));
+
+        assertEquals(Exceptions.INVALID_CREDENTIALS, exception.getMessage());
+        verify(jwtUtils, never()).generateToken(anyMap(), anyString());
+    }
+
+    @Test
+    @DisplayName("Login con usuario inexistente lanza BadCredentialsException y no genera token")
+    void login_WithUnknownUsername_ShouldThrowBadCredentials() {
+        // Arrange
+        when(userRepository.findByUsername("noExiste")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> userService.login(LoginRequestDTO.builder()
+                        .username("noExiste")
+                        .password("Pelele")
+                        .build()));
+
+        assertEquals(Exceptions.INVALID_CREDENTIALS, exception.getMessage());
+        verifyNoInteractions(encoder, jwtUtils);
+    }
+
+    @Test
+    @DisplayName("Login de usuario sin contraseña almacenada lanza BadCredentialsException y no genera token")
+    void login_WithNullStoredPassword_ShouldThrowBadCredentials() {
+        // Arrange
+        User user = User.builder()
+                .id(2L)
+                .username("google_user")
+                .password(null)
+                .build();
+
+        when(userRepository.findByUsername("google_user")).thenReturn(Optional.of(user));
+
+        // Act & Assert
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> userService.login(LoginRequestDTO.builder()
+                        .username("google_user")
+                        .password("Pelele")
+                        .build()));
+
+        assertEquals(Exceptions.INVALID_CREDENTIALS, exception.getMessage());
+        verify(jwtUtils, never()).generateToken(anyMap(), anyString());
+    }
+
+    @Test
+    @DisplayName("Login sin contraseña en la request lanza BadCredentialsException sin validar contra el repositorio")
+    void login_WithNullRawPassword_ShouldThrowBadCredentials() {
+        // Arrange
+        User user = User.builder()
+                .id(1L)
+                .username("juanceto01")
+                .password("$2a$10$hashedPassword")
+                .build();
+
+        when(userRepository.findByUsername("juanceto01")).thenReturn(Optional.of(user));
+
+        // Act & Assert
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> userService.login(LoginRequestDTO.builder()
+                        .username("juanceto01")
+                        .password(null)
+                        .build()));
+
+        assertEquals(Exceptions.INVALID_CREDENTIALS, exception.getMessage());
+        verifyNoInteractions(encoder, jwtUtils);
     }
 
     @AllArgsConstructor
