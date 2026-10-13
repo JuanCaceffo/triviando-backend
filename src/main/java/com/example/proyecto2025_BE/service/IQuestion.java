@@ -17,6 +17,8 @@ public interface IQuestion {
 
     boolean existsByTopicAndUser(String topic, Long userId);
 
+    List<Pregunta> findByTopicoAndUserId(String topico, Long userId);
+
     List<Pregunta> obtenerPreguntasNoRespondidasPorTopico(Long userId, String topico);
 
     String getTopicFromQuestion(String topic, Long userId);

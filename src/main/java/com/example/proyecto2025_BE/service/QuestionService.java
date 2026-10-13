@@ -61,6 +61,11 @@ public class QuestionService implements IQuestion {
     }
 
     @Override
+    public List<Pregunta> findByTopicoAndUserId(String topico, Long userId) {
+        return questionRepository.findByTopicoAndUserId(topico, userId);
+    }
+
+    @Override
     public List<Pregunta> obtenerPreguntasNoRespondidasPorTopico(Long userId, String topico) {
         var cantidadPreguntas = questionProperties.getQuestionsPerTopic();
 
