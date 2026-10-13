@@ -22,12 +22,14 @@ public class LLMConfig {
 	private String modelName;
 	private boolean logRequests;
 	private boolean logResponses;
+	private double temperature;
 	
 	@Bean
 	public ModelCommunication modelCommunication() {
 		return AiServices.builder(ModelCommunication.class)
 			.chatLanguageModel(chatLanguageModel())
-			.chatMemory(MessageWindowChatMemory.withMaxMessages(10))
+			// Memoria fresca por invocacion: sin estado compartido entre requests ni entre usuarios
+			.chatMemoryProvider(chatMemoryId -> MessageWindowChatMemory.withMaxMessages(10))
 			.systemMessageProvider(chatMemoryId -> LLM.TEMPLATE_SYSTEM_PROMPT)
 			.build();
 	}
@@ -39,7 +41,7 @@ public class LLMConfig {
 			.logRequests(logRequests)
 			.logResponses(logResponses)
 			.timeout(LLM.TIMEOUT)
-			.temperature(0.0)
+			.temperature(temperature)
 			.supportedCapabilities(Set.of(Capability.RESPONSE_FORMAT_JSON_SCHEMA))
 			.strictJsonSchema(true)
 			.build();
