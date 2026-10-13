@@ -6,8 +6,6 @@ import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.FeedbackAnswer;
 import com.example.proyecto2025_BE.model.Pregunta;
 import com.example.proyecto2025_BE.model.User;
-import com.example.proyecto2025_BE.service.command.ActualizarRachaCommand;
-import com.example.proyecto2025_BE.service.command.UserInvoker;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +18,6 @@ public class AnswerService {
 	
 	private final UserService userService;
 	private final IQuestion IQuestion;
-	private final UserInvoker userInvoker;
 	private final ResponseRepository answerRepository;
 
 	@Transactional
@@ -38,7 +35,7 @@ public class AnswerService {
 		answer.setResponseDate(LocalDate.now());
 		answer.impactScore(question);
 		user.add(answer);
-		userInvoker.executeCommand(new ActualizarRachaCommand(user));
+		user.actualizarRacha();
 		userService.update(user);
 
 		return FeedbackAnswer.builder()

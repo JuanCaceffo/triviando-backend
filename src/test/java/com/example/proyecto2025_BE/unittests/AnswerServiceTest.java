@@ -6,13 +6,13 @@ import com.example.proyecto2025_BE.model.*;
 import com.example.proyecto2025_BE.service.AnswerService;
 import com.example.proyecto2025_BE.service.IQuestion;
 import com.example.proyecto2025_BE.service.UserService;
-import com.example.proyecto2025_BE.service.command.UserInvoker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,16 +28,16 @@ public class AnswerServiceTest {
     private static Option correctOption;
 	private static Answer.AnswerBuilder answerbuilder;
 	private static ResponseRepository answerRepository;
+	private static User user;
 
     @BeforeAll
 	static void beforeAll() {
         UserService userServiceMock = mock(UserService.class);
         IQuestion IQuestionMock = mock(IQuestion.class);
-        UserInvoker userInvoker = mock(UserInvoker.class);
 		answerRepository = mock(ResponseRepository.class);
-		answerService = new AnswerService(userServiceMock, IQuestionMock, userInvoker,answerRepository);
+		answerService = new AnswerService(userServiceMock, IQuestionMock, answerRepository);
 		
-		User user = User.builder()
+		user = User.builder()
 				.id(1L)
 				.build();
 		
@@ -137,5 +137,23 @@ public class AnswerServiceTest {
 
 		assertEquals(correctOption, feedback.getCorrectOption());
 		assertEquals(LetterOption.A, feedback.getCorrectOption().getLetter());
+	}
+
+	@Test
+	@DisplayName("Check streak is updated when answering")
+	void streakIsUpdatedTest() {
+		user.setRachaActual(null);
+		user.setUltimaActividad(null);
+
+		Answer answer = answerbuilder.millisecondsSpent(29999)
+				.optionSelected(correctOption.getLetter())
+				.build();
+
+		when(answerRepository.findByUserIdAndQuestionId(user.getId(), answer.getQuestionId())).thenReturn(null);
+
+		answerService.answer(answer);
+
+		assertEquals(1, user.getRachaActual());
+		assertEquals(LocalDate.now(), user.getUltimaActividad());
 	}
 }

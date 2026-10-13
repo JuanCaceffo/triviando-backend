@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -13,8 +14,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.example.proyecto2025_BE.constants.DatePattern;
-import com.example.proyecto2025_BE.utils.racha.RachaStrategy;
-import com.example.proyecto2025_BE.utils.racha.RachaStrategyFactory;
 import com.example.proyecto2025_BE.views.Views;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -152,8 +151,12 @@ public class User {
 
 	public void actualizarRacha() {
 		LocalDate today = LocalDate.now();
-		RachaStrategy strategy = RachaStrategyFactory.getStrategy(ultimaActividad, today);
-		this.rachaActual = strategy.calcularRacha(rachaActual);
+		long dias = (ultimaActividad == null) ? -1 : ChronoUnit.DAYS.between(ultimaActividad, today);
+		this.rachaActual = switch ((int) dias) {
+			case 0 -> rachaActual;                                 // mismo día: no cambia
+			case 1 -> (rachaActual == null) ? 1 : rachaActual + 1; // día consecutivo: incrementa
+			default -> 1;                                          // primer uso o día salteado: reinicia
+		};
 		this.ultimaActividad = today;
 	}
 
