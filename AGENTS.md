@@ -69,7 +69,6 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
 2. `model/prompter/Prompter` es polimórfico según el campo `promptType` del body:
    - **`topicPrompter`** (`TopicPrompter`): tópico nuevo, 10 preguntas, rechaza si el tópico ya existe, genera emoji con una 2da llamada al LLM
    - **`questionPrompter`** (`QuestionPrompter`): tópico existente, 5 preguntas, reutiliza el emoji
-3. Ambos validan cuotas diarias del plan FREE (`validateGeneration`, config en `api.questions.*`: dev 5 tópicos/100 preguntas por día, prod 2/25)
 4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
 5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
 6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`
@@ -107,7 +106,6 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 - **Nuevo endpoint** → `controller/` (+ anotaciones Swagger) → lógica en `service/` → acceso a datos en `repository/`
 - **Nueva entidad MySQL** → `model/` con `@Entity` + repositorio JPA en `repository/`
 - **Nueva entidad Mongo** → `model/` con `@Document` + repositorio `MongoRepository`
-- **Nuevo DTO de request/response de la API** → `views/` (paquete por recurso: `views/users/...`, `views/questions/...`); DTOs internos del LLM → `model/dto/llm/`
 - **Configuración nueva** → `configuration/` (o `application*.yml` si es por perfil)
 - **Errores** → mensajes en `constants/Exceptions.java`, manejo en `exceptions/GlobalExceptionHandler.java`
 - **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/temperatura en `LLMConfig` + `application-{dev,prod}.yml`
@@ -126,10 +124,3 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 - Inglés para identificadores de código, dominio en español (`Pregunta`, `Prompter`, `topico`) — respetar la nomenclatura existente
 - Lombok (`@Data`, `@RequiredArgsConstructor`, `@SuperBuilder`) en lugar de boilerplate manual
 - Interfaces de servicio para dependencias de controller (ej. `IQuestion`)
-
-## Convenciones Git (resumen)
-
-- **Git Flow**: `develop` como rama de integración, `main` solo para producción; features se ramifican desde `develop` y se fusionan mediante PR hacia `develop`; releases se marcan con tags `vX.Y.Z`
-- **Ramas**: `TIPO/SCRUM-N°TAREA-BREVE-DESCRIPCIÓN` (ej. `DOCS/SCRUM-9-definir-convenciones`)
-- **Commits** con prefijo: `[FEATURE]`, `[FIX]`, `[IMPROVEMENT]`, `[DOCS]`, `[REFACTOR]`, `[TEST]`, `[HOTFIX]`
-- Flujo JIRA (To-Do → In Progress → Code Review → Done) y detalles completos: ver `README.md`
