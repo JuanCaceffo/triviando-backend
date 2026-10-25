@@ -36,6 +36,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
   - `User` (`users`), `Answer`, `Option` (`options`), `PasswordResetToken` (`password_reset_tokens`)
 - **MongoDB** (`@Document`):
   - `Pregunta` (`preguntas`), `Respuesta` (`respuestas_usuario`), `Feedback`
+  - `GenerationJob` (`generation_jobs`) — jobs asíncronos de generación desde archivo (índice TTL 24 h)
 - **Tests**: H2 en memoria (`application-test.yml`)
 
 Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios en preguntas/feedback = modificar entidades `@Document`. No esperar migraciones.
@@ -55,6 +56,8 @@ Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios 
 - `GET /preguntas?userId=&topico=` — preguntas no respondidas (opcionalmente por tópico)
 - `GET /preguntas/{id}`, `GET /preguntas/topicos/{userId}` — conteo por tópico
 - `POST /preguntas/send-feedback` — feedback sobre una pregunta
+- `POST /preguntas/document/generate` — **genera un tópico desde un archivo** (multipart: `file` + `topic`, PDF/DOCX/TXT/MD hasta 10 MB). Devuelve `202` con `jobId`
+- `GET /preguntas/document/jobs/{jobId}` — estado/progreso del job (`PENDING`/`PROCESSING`/`COMPLETED`/`FAILED`) y resultado
 
 ### Respuestas y suscripciones
 - `POST /answers` — responde una pregunta
@@ -72,6 +75,15 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
 4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
 5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
 6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`
+
+### Generación desde archivo (asíncrona)
+
+1. `POST /preguntas/document/generate` valida reglas de negocio (JWT, límites FREE, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractor` (PDFBox/POI/plano; límites en `api.documents`).
+2. Guarda un `GenerationJob` en Mongo (`PENDING`) y encola `DocumentGenerationWorker` (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
+3. Si el texto supera `api.documents.prompt-budget-chars`, `DocumentContextBuilder` hace map-reduce con `DocumentSummarizer` (LangChain4j, system prompt propio) muestreando bloques distribuidos por todo el documento.
+4. Con el contexto resumido construye un `FilePrompter` (extiende `TopicPrompter`) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
+5. El frontend consulta el job por polling (~2,5 s, timeout 5 min). El texto extraído se borra del job al terminar y el documento Mongo expira por TTL.
+6. PDFs escaneados no tienen OCR: se devuelve error de extracción.
 
 ## Comandos
 

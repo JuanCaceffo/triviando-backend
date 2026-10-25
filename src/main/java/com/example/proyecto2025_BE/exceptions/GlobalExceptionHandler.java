@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.exception.LangChain4jException;
@@ -13,9 +14,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -93,5 +98,21 @@ public class GlobalExceptionHandler {
             errors.put("error", ex.getMessage());
             return new ResponseEntity<>(errors, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Object> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        log.warn("Archivo subido supera el tamaño máximo permitido: {}", ex.getMessage());
+        Map<String, String> errors = new HashMap<>();
+        errors.put("error", Exceptions.FILE_TOO_LARGE);
+        return new ResponseEntity<>(errors, HttpStatus.PAYLOAD_TOO_LARGE);
+    }
+
+    @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class,
+            MissingServletRequestParameterException.class})
+    public ResponseEntity<Object> handleMultipartException(Exception ex) {
+        Map<String, String> errors = new HashMap<>();
+        errors.put("error", ex.getMessage() == null ? Exceptions.INVALID_FILE : ex.getMessage());
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 }

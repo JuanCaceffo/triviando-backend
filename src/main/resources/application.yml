@@ -13,6 +13,10 @@ spring:
         smtp:
           starttls:
             enable: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 app:
   mail:
@@ -22,12 +26,24 @@ app:
 server:
   servlet:
     context-path: /api/v1
+  tomcat:
+    # Permite devolver un 413 limpio cuando el archivo supera el limite
+    max-swallow-size: 12MB
 
 api:
   questions:
     questions-per-topic: 5
     max-topics-free-per-day: 5
     max-questions-free-per-day: 100
+  documents:
+    max-file-size-bytes: 10485760
+    max-extracted-chars: 400000
+    prompt-budget-chars: 30000
+    chunk-size-chars: 8000
+    max-chunks: 10
+    max-pdf-pages: 200
+    stale-job-minutes: 15
+    one-active-job-per-user: true
 
 mercadopago:
   accessToken: ${MP_ACCESS_TOKEN}

@@ -56,7 +56,7 @@ public abstract class Prompter {
         return List.of();
     }
 
-    private String basePrompt() {
+    protected String basePrompt() {
         return String.format(TEMPLATE_PROMPT, questionsQuantity(), topic.toLowerCase());
     }
 
