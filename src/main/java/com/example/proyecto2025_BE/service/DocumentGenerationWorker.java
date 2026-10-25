@@ -2,8 +2,8 @@ package com.example.proyecto2025_BE.service;
 
 import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
-import com.example.proyecto2025_BE.model.GeneratedTopic;
 import com.example.proyecto2025_BE.model.GenerationJob;
+import com.example.proyecto2025_BE.model.GenerationProgress;
 import com.example.proyecto2025_BE.model.JobStatus;
 import com.example.proyecto2025_BE.model.dto.Topics;
 import com.example.proyecto2025_BE.model.prompter.FilePrompter;
@@ -26,14 +26,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DocumentGenerationWorker {
 
-    private static final int PROGRESS_START = 5;
-    private static final int PROGRESS_CONTEXT_READY = 65;
-    private static final int PROGRESS_DONE = 100;
-    private static final int MAX_ERROR_LENGTH = 300;
-
     private final GenerationJobRepository repository;
     private final DocumentContextBuilder contextBuilder;
     private final LLMApiClientService llmApiClientService;
+    private final GenerationJobMapper mapper;
 
     @Async("documentGenerationExecutor")
     public void process(String jobId) {
@@ -42,50 +38,36 @@ public class DocumentGenerationWorker {
             return;
         }
 
-        String rawText = job.getContextText();
+        String extractedText = job.getExtractedText();
         // Se limpia el texto crudo para no reescribirlo en cada actualización de progreso
-        job.setContextText(null);
+        job.setExtractedText(null);
         job.setStatus(JobStatus.PROCESSING);
-        updateProgress(job, PROGRESS_START);
+        updateProgress(job, GenerationProgress.STARTED);
 
         try {
-            String context = contextBuilder.buildContext(rawText,
-                    percentage -> updateProgress(job, mapChunkProgress(percentage)));
-            updateProgress(job, PROGRESS_CONTEXT_READY);
+            String summarizedContext = contextBuilder.buildContext(extractedText,
+                    percentage -> updateProgress(job, GenerationProgress.fromSummaryPercentage(percentage)));
+            updateProgress(job, GenerationProgress.CONTEXT_READY);
 
-            List<Topics> topics = llmApiClientService.generate(buildPrompter(job, context), job.getRole(), job.getUserId());
+            List<Topics> topics = llmApiClientService.generate(
+                    buildPrompter(job, summarizedContext), job.getRole(), job.getUserId());
 
-            job.setResult(topics.stream()
-                    .map(topic -> GeneratedTopic.builder()
-                            .topic(topic.topic())
-                            .size(topic.size().intValue())
-                            .emoji(topic.emoji())
-                            .build())
-                    .toList());
+            job.setResult(mapper.toGeneratedTopics(topics));
             job.setStatus(JobStatus.COMPLETED);
             job.setError(null);
-            updateProgress(job, PROGRESS_DONE);
+            updateProgress(job, GenerationProgress.DONE);
         } catch (Exception e) {
             log.error("Falló la generación desde archivo para el job {}", job.getId(), e);
             job.setStatus(JobStatus.FAILED);
             job.setError(userFacingError(e));
-            job.setContextText(null);
+            job.setExtractedText(null);
             job.setUpdatedAt(LocalDateTime.now());
             repository.save(job);
         }
     }
 
-    private FilePrompter buildPrompter(GenerationJob job, String context) {
-        return FilePrompter.builder()
-                .topic(job.getTopic())
-                .userId(job.getUserId())
-                .context(context)
-                .build();
-    }
-
-    private int mapChunkProgress(int percentage) {
-        int bounded = Math.max(0, Math.min(100, percentage));
-        return 10 + (bounded * 50 / 100);
+    private FilePrompter buildPrompter(GenerationJob job, String summarizedContext) {
+        return FilePrompter.forDocument(job.getTopic(), job.getUserId(), summarizedContext);
     }
 
     /**
@@ -105,13 +87,6 @@ public class DocumentGenerationWorker {
         if (exception instanceof ValidationException) {
             return exception.getMessage();
         }
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            return Exceptions.GENERATION_FAILED;
-        }
-        String sanitized = message.length() > MAX_ERROR_LENGTH
-                ? message.substring(0, MAX_ERROR_LENGTH)
-                : message;
-        return Exceptions.GENERATION_FAILED + ": " + sanitized;
+        return Exceptions.GENERATION_FAILED;
     }
 }

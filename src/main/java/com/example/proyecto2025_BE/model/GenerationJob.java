@@ -31,7 +31,7 @@ public class GenerationJob {
     private String topic;
     private JobStatus status;
     private int progress;
-    private String contextText;
+    private String extractedText;
     private List<GeneratedTopic> result;
     private String error;
 

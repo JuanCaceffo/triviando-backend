@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.example.proyecto2025_BE.configuration.DocumentProperties;
 import com.example.proyecto2025_BE.constants.Exceptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +31,8 @@ public class GlobalExceptionHandler {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private DocumentProperties documentProperties;
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Object> handleConflictException(ConflictException ex) {
@@ -103,8 +106,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Object> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
         log.warn("Archivo subido supera el tamaño máximo permitido: {}", ex.getMessage());
+        long maxMegabytes = Math.max(1, documentProperties.getMaxFileSizeBytes() / (1024 * 1024));
         Map<String, String> errors = new HashMap<>();
-        errors.put("error", Exceptions.FILE_TOO_LARGE);
+        errors.put("error", String.format(Exceptions.FILE_TOO_LARGE, maxMegabytes));
         return new ResponseEntity<>(errors, HttpStatus.PAYLOAD_TOO_LARGE);
     }
 

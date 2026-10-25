@@ -78,11 +78,11 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
 
 ### Generación desde archivo (asíncrona)
 
-1. `POST /preguntas/document/generate` valida reglas de negocio (JWT, límites FREE, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractor` (PDFBox/POI/plano; límites en `api.documents`).
-2. Guarda un `GenerationJob` en Mongo (`PENDING`) y encola `DocumentGenerationWorker` (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
+1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (límites FREE, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
+2. `GenerationJobService` guarda un `GenerationJob` en Mongo (`PENDING`) y `DocumentGenerationWorker` lo encola (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
 3. Si el texto supera `api.documents.prompt-budget-chars`, `DocumentContextBuilder` hace map-reduce con `DocumentSummarizer` (LangChain4j, system prompt propio) muestreando bloques distribuidos por todo el documento.
-4. Con el contexto resumido construye un `FilePrompter` (extiende `TopicPrompter`) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
-5. El frontend consulta el job por polling (~2,5 s, timeout 5 min). El texto extraído se borra del job al terminar y el documento Mongo expira por TTL.
+4. Con el contexto resumido construye un `FilePrompter` mediante `FilePrompter.forDocument(...)` (extiende `TopicPrompter` y exige contexto) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
+5. El frontend consulta el job por polling (~2,5 s, timeout 5 min). `GenerationJobMapper` traduce entidad ↔ DTO; el texto extraído se borra del job al terminar y el documento Mongo expira por TTL.
 6. PDFs escaneados no tienen OCR: se devuelve error de extracción.
 
 ## Comandos

@@ -39,7 +39,7 @@ public class DocumentGenerationController {
             @ApiResponse(responseCode = "202", description = "Generación encolada exitosamente"),
             @ApiResponse(responseCode = "400", description = Exceptions.INVALID_FILE_TYPE, content = @Content),
             @ApiResponse(responseCode = "409", description = Exceptions.GENERATION_JOB_IN_PROGRESS, content = @Content),
-            @ApiResponse(responseCode = "413", description = Exceptions.FILE_TOO_LARGE, content = @Content)
+            @ApiResponse(responseCode = "413", description = "El archivo supera el tamaño máximo permitido de 10 MB", content = @Content)
     })
     public ResponseEntity<GenerationJobCreatedResponse> generate(
             @Parameter(description = "Archivo PDF, DOCX, TXT o MD (máximo 10 MB)", required = true)

@@ -1,23 +1,28 @@
 package com.example.proyecto2025_BE.unittests;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.GenerationJob;
 import com.example.proyecto2025_BE.model.JobStatus;
 import com.example.proyecto2025_BE.model.dto.Topics;
 import com.example.proyecto2025_BE.model.prompter.FilePrompter;
+import com.example.proyecto2025_BE.model.prompter.Prompter;
 import com.example.proyecto2025_BE.repository.GenerationJobRepository;
 import com.example.proyecto2025_BE.service.DocumentContextBuilder;
 import com.example.proyecto2025_BE.service.DocumentGenerationWorker;
+import com.example.proyecto2025_BE.service.GenerationJobMapper;
 import com.example.proyecto2025_BE.service.LLMApiClientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,7 +47,8 @@ class DocumentGenerationWorkerTest {
         repository = mock(GenerationJobRepository.class);
         contextBuilder = mock(DocumentContextBuilder.class);
         llmApiClientService = mock(LLMApiClientService.class);
-        worker = new DocumentGenerationWorker(repository, contextBuilder, llmApiClientService);
+        worker = new DocumentGenerationWorker(repository, contextBuilder, llmApiClientService,
+                new GenerationJobMapper());
     }
 
     @Test
@@ -61,11 +67,16 @@ class DocumentGenerationWorkerTest {
         assertEquals(1, job.getResult().size());
         assertEquals("Biología", job.getResult().getFirst().getTopic());
         assertEquals(10, job.getResult().getFirst().getSize());
-        assertNull(job.getContextText());
+        assertNull(job.getExtractedText());
+
+        ArgumentCaptor<Prompter> prompter = ArgumentCaptor.forClass(Prompter.class);
+        verify(llmApiClientService).generate(prompter.capture(), eq(Account.FREE), eq(1L));
+        FilePrompter filePrompter = assertInstanceOf(FilePrompter.class, prompter.getValue());
+        assertTrue(filePrompter.buildPrompt(List.of()).contains("contexto resumido"));
     }
 
     @Test
-    @DisplayName("Si el resumen falla marca el job como fallido")
+    @DisplayName("Si el resumen falla marca el job como fallido con mensaje genérico")
     void fallaDuranteElResumen() {
         GenerationJob job = crearJob(JobStatus.PENDING, "texto crudo");
         when(repository.findById("job1")).thenReturn(Optional.of(job));
@@ -74,12 +85,12 @@ class DocumentGenerationWorkerTest {
         worker.process("job1");
 
         assertEquals(JobStatus.FAILED, job.getStatus());
-        assertTrue(job.getError().contains("No se pudieron generar las preguntas"));
-        assertNull(job.getContextText());
+        assertEquals(Exceptions.GENERATION_FAILED, job.getError());
+        assertNull(job.getExtractedText());
     }
 
     @Test
-    @DisplayName("Si el LLM falla marca el job como fallido con el mensaje de validación")
+    @DisplayName("Un error de validación conserva su mensaje para el usuario")
     void fallaEnLaGeneracionConMensajeDeValidacion() {
         GenerationJob job = crearJob(JobStatus.PENDING, "texto crudo");
         when(repository.findById("job1")).thenReturn(Optional.of(job));
@@ -115,7 +126,7 @@ class DocumentGenerationWorkerTest {
         verifyNoInteractions(contextBuilder, llmApiClientService);
     }
 
-    private GenerationJob crearJob(JobStatus status, String contextText) {
+    private GenerationJob crearJob(JobStatus status, String extractedText) {
         return GenerationJob.builder()
                 .id("job1")
                 .userId(1L)
@@ -123,7 +134,7 @@ class DocumentGenerationWorkerTest {
                 .topic("Biología")
                 .status(status)
                 .progress(0)
-                .contextText(contextText)
+                .extractedText(extractedText)
                 .build();
     }
 }

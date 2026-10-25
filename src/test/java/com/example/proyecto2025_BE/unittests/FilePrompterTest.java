@@ -31,11 +31,7 @@ class FilePrompterTest {
     @BeforeEach
     void setUp() {
         questionService = mock(IQuestion.class);
-        prompter = FilePrompter.builder()
-                .topic("Biología")
-                .userId(1L)
-                .context(CONTEXT)
-                .build();
+        prompter = FilePrompter.forDocument("Biología", 1L, CONTEXT);
         prompter.withService(questionService);
     }
 
@@ -101,16 +97,11 @@ class FilePrompterTest {
     }
 
     @Test
-    @DisplayName("Sin contexto el prompt no falla")
-    void sinContextoNoFalla() {
-        FilePrompter sinContexto = FilePrompter.builder()
-                .topic("Biología")
-                .userId(1L)
-                .build();
-        sinContexto.withService(questionService);
-
-        String prompt = sinContexto.buildPrompt(List.of());
-
-        assertTrue(prompt.startsWith("Generame 10 preguntas cortas sobre biología"));
+    @DisplayName("La fábrica rechaza un contexto vacío o nulo")
+    void fabricaRechazaContextoVacio() {
+        assertThrows(IllegalArgumentException.class,
+                () -> FilePrompter.forDocument("Biología", 1L, "  "));
+        assertThrows(IllegalArgumentException.class,
+                () -> FilePrompter.forDocument("Biología", 1L, null));
     }
 }

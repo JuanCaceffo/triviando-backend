@@ -2,7 +2,12 @@ package com.example.proyecto2025_BE.unittests;
 
 import com.example.proyecto2025_BE.configuration.DocumentProperties;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
-import com.example.proyecto2025_BE.service.DocumentTextExtractor;
+import com.example.proyecto2025_BE.service.document.DocxDocumentTextExtractor;
+import com.example.proyecto2025_BE.service.document.DocumentTextExtractionService;
+import com.example.proyecto2025_BE.service.document.DocumentTextNormalizer;
+import com.example.proyecto2025_BE.service.document.PdfDocumentTextExtractor;
+import com.example.proyecto2025_BE.service.document.PlainTextDocumentTextExtractor;
+import com.example.proyecto2025_BE.service.document.UploadedFileValidator;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -18,13 +23,14 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@DisplayName("Document Text Extractor Tests")
-class DocumentTextExtractorTest {
+@DisplayName("Document Text Extraction Service Tests")
+class DocumentTextExtractionServiceTest {
 
     private static final String LONG_TEXT =
             "La célula es la unidad estructural y funcional de todos los seres vivos. "
@@ -32,12 +38,18 @@ class DocumentTextExtractorTest {
                     + "Su descubrimiento se atribuye a Robert Hooke en el siglo XVII.";
 
     private DocumentProperties properties;
-    private DocumentTextExtractor extractor;
+    private DocumentTextExtractionService service;
 
     @BeforeEach
     void setUp() {
         properties = new DocumentProperties();
-        extractor = new DocumentTextExtractor(properties);
+        service = new DocumentTextExtractionService(
+                new UploadedFileValidator(properties),
+                new DocumentTextNormalizer(properties),
+                List.of(
+                        new PdfDocumentTextExtractor(properties),
+                        new DocxDocumentTextExtractor(),
+                        new PlainTextDocumentTextExtractor()));
     }
 
     @Test
@@ -46,7 +58,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "apunte.txt", "text/plain",
                 LONG_TEXT.getBytes(StandardCharsets.UTF_8));
 
-        String result = extractor.extract(file);
+        String result = service.extract(file);
 
         assertTrue(result.contains("La célula es la unidad estructural"));
         assertEquals(LONG_TEXT, result);
@@ -58,7 +70,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "apunte.md", "text/markdown",
                 ("# Título\n\n" + LONG_TEXT).getBytes(StandardCharsets.UTF_8));
 
-        String result = extractor.extract(file);
+        String result = service.extract(file);
 
         assertTrue(result.contains("Título"));
         assertTrue(result.contains("Robert Hooke"));
@@ -71,7 +83,7 @@ class DocumentTextExtractorTest {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 crearDocx(LONG_TEXT));
 
-        String result = extractor.extract(file);
+        String result = service.extract(file);
 
         assertTrue(result.contains("unidad estructural y funcional"));
         assertTrue(result.contains("Robert Hooke"));
@@ -83,7 +95,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "apunte.pdf", "application/pdf",
                 crearPdf(LONG_TEXT));
 
-        String result = extractor.extract(file);
+        String result = service.extract(file);
 
         assertTrue(result.contains("unidad estructural y funcional"));
         assertTrue(result.contains("Robert Hooke"));
@@ -94,7 +106,7 @@ class DocumentTextExtractorTest {
     void rechazaArchivoVacio() {
         MockMultipartFile file = new MockMultipartFile("file", "vacio.txt", "text/plain", new byte[0]);
 
-        ValidationException exception = assertThrows(ValidationException.class, () -> extractor.extract(file));
+        ValidationException exception = assertThrows(ValidationException.class, () -> service.extract(file));
 
         assertEquals("El archivo está vacío", exception.getMessage());
     }
@@ -106,7 +118,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "grande.txt", "text/plain",
                 LONG_TEXT.getBytes(StandardCharsets.UTF_8));
 
-        ValidationException exception = assertThrows(ValidationException.class, () -> extractor.extract(file));
+        ValidationException exception = assertThrows(ValidationException.class, () -> service.extract(file));
 
         assertTrue(exception.getMessage().contains("tamaño máximo"));
     }
@@ -117,7 +129,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "planilla.xlsx", "application/vnd.ms-excel",
                 LONG_TEXT.getBytes(StandardCharsets.UTF_8));
 
-        ValidationException exception = assertThrows(ValidationException.class, () -> extractor.extract(file));
+        ValidationException exception = assertThrows(ValidationException.class, () -> service.extract(file));
 
         assertTrue(exception.getMessage().contains("Formato de archivo no soportado"));
     }
@@ -128,7 +140,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "falso.pdf", "application/pdf",
                 LONG_TEXT.getBytes(StandardCharsets.UTF_8));
 
-        ValidationException exception = assertThrows(ValidationException.class, () -> extractor.extract(file));
+        ValidationException exception = assertThrows(ValidationException.class, () -> service.extract(file));
 
         assertTrue(exception.getMessage().contains("Formato de archivo no soportado"));
     }
@@ -138,7 +150,7 @@ class DocumentTextExtractorTest {
     void rechazaPdfSinTexto() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "escaneado.pdf", "application/pdf", crearPdf(""));
 
-        ValidationException exception = assertThrows(ValidationException.class, () -> extractor.extract(file));
+        ValidationException exception = assertThrows(ValidationException.class, () -> service.extract(file));
 
         assertTrue(exception.getMessage().contains("No se pudo extraer texto"));
     }
@@ -150,7 +162,7 @@ class DocumentTextExtractorTest {
         MockMultipartFile file = new MockMultipartFile("file", "apunte.txt", "text/plain",
                 LONG_TEXT.getBytes(StandardCharsets.UTF_8));
 
-        String result = extractor.extract(file);
+        String result = service.extract(file);
 
         assertEquals(60, result.length());
     }

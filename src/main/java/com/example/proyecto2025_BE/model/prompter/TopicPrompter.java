@@ -1,5 +1,6 @@
 package com.example.proyecto2025_BE.model.prompter;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.exceptions.ConflictException;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
 import com.example.proyecto2025_BE.service.ModelCommunication;
@@ -23,7 +24,7 @@ public class TopicPrompter extends Prompter {
     @Override
     public void validatePrompt() {
         if (super.existsTopic()) {
-            throw ConflictException.build("Ya existe el tópico que se intenta crear");
+            throw ConflictException.build(Exceptions.TOPIC_ALREADY_EXISTS);
         }
     }
 
@@ -38,9 +39,7 @@ public class TopicPrompter extends Prompter {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
         if (!question.canCreateTopic(userId, startOfDay, endOfDay)) {
-            throw new ValidationException(
-                    "Has alcanzado el límite de tópicos diarios de tu plan actual. Para crear más, actualiza a un plan Premium."
-            );
+            throw new ValidationException(Exceptions.TOPIC_LIMIT_REACHED);
         }
     }
 }

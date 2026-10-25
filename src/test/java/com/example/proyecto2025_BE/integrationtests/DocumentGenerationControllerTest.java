@@ -10,7 +10,7 @@ import com.example.proyecto2025_BE.repository.QuestionRepository;
 import com.example.proyecto2025_BE.repository.UserRepository;
 import com.example.proyecto2025_BE.security.JwtUtil;
 import com.example.proyecto2025_BE.service.DocumentGenerationWorker;
-import com.example.proyecto2025_BE.service.DocumentTextExtractor;
+import com.example.proyecto2025_BE.service.document.DocumentTextExtractionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,7 +52,7 @@ class DocumentGenerationControllerTest {
     @MockitoBean
     private GenerationJobRepository jobRepository;
     @MockitoBean
-    private DocumentTextExtractor textExtractor;
+    private DocumentTextExtractionService textExtractionService;
     @MockitoBean
     private DocumentGenerationWorker worker;
     @MockitoBean
@@ -82,7 +82,7 @@ class DocumentGenerationControllerTest {
     @Test
     @DisplayName("POST multipart encola la generación y devuelve 202 con Location")
     void encolaGeneracion() throws Exception {
-        when(textExtractor.extract(any(MultipartFile.class))).thenReturn("texto extraído");
+        when(textExtractionService.extract(any(MultipartFile.class))).thenReturn("texto extraído");
         when(jobRepository.save(any(GenerationJob.class))).thenAnswer(invocation -> {
             GenerationJob job = invocation.getArgument(0);
             job.setId("job1");
