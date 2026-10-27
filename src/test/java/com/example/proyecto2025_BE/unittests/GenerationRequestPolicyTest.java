@@ -2,6 +2,7 @@ package com.example.proyecto2025_BE.unittests;
 
 import com.example.proyecto2025_BE.configuration.DocumentProperties;
 import com.example.proyecto2025_BE.exceptions.ConflictException;
+import com.example.proyecto2025_BE.exceptions.ForbiddenException;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.GenerationJob;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,13 +53,21 @@ class GenerationRequestPolicyTest {
     }
 
     @Test
+    @DisplayName("Rechaza la generación desde archivo para usuarios FREE")
+    void rechazaUsuariosFree() {
+        assertThrows(ForbiddenException.class,
+                () -> policy.validateRequest("Biología", Account.FREE, 1L));
+
+        verifyNoInteractions(repository, questionService);
+    }
+
+    @Test
     @DisplayName("Normaliza el tópico quitando espacios")
     void normalizaTopico() {
         when(repository.findFirstByUserIdAndStatusIn(anyLong(), any())).thenReturn(Optional.empty());
         when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(false);
-        when(questionService.canCreateTopic(eq(1L), any(), any())).thenReturn(true);
 
-        String topic = policy.validateRequest("  Biología  ", Account.FREE, 1L);
+        String topic = policy.validateRequest("  Biología  ", Account.PREMIUM, 1L);
 
         assertEquals("Biología", topic);
         verify(questionService).existsByTopicAndUser("Biología", 1L);
@@ -70,7 +80,7 @@ class GenerationRequestPolicyTest {
                 .thenReturn(Optional.of(GenerationJob.builder().id("otro").build()));
 
         assertThrows(ConflictException.class,
-                () -> policy.validateRequest("Biología", Account.FREE, 1L));
+                () -> policy.validateRequest("Biología", Account.PREMIUM, 1L));
 
         verify(questionService, never()).existsByTopicAndUser(any(), anyLong());
     }
@@ -82,29 +92,16 @@ class GenerationRequestPolicyTest {
         when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(true);
 
         assertThrows(ConflictException.class,
-                () -> policy.validateRequest("Biología", Account.FREE, 1L));
+                () -> policy.validateRequest("Biología", Account.PREMIUM, 1L));
     }
 
     @Test
-    @DisplayName("Aplica el límite diario a los usuarios FREE")
-    void aplicaLimiteFree() {
-        when(repository.findFirstByUserIdAndStatusIn(anyLong(), any())).thenReturn(Optional.empty());
-        when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(false);
-        when(questionService.canCreateTopic(eq(1L), any(), any())).thenReturn(false);
-
-        assertThrows(ValidationException.class,
-                () -> policy.validateRequest("Biología", Account.FREE, 1L));
-    }
-
-    @Test
-    @DisplayName("Los usuarios PREMIUM no consultan el cupo diario")
-    void premiumNoConsultaCupo() {
+    @DisplayName("Permite la generación desde archivo a usuarios PREMIUM")
+    void permiteUsuariosPremium() {
         when(repository.findFirstByUserIdAndStatusIn(anyLong(), any())).thenReturn(Optional.empty());
         when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(false);
 
-        policy.validateRequest("Biología", Account.PREMIUM, 1L);
-
-        verify(questionService, never()).canCreateTopic(anyLong(), any(), any());
+        assertDoesNotThrow(() -> policy.validateRequest("Biología", Account.PREMIUM, 1L));
     }
 
     @Test
@@ -112,9 +109,8 @@ class GenerationRequestPolicyTest {
     void jobUnicoDesactivado() {
         properties.setOneActiveJobPerUser(false);
         when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(false);
-        when(questionService.canCreateTopic(eq(1L), any(), any())).thenReturn(true);
 
-        policy.validateRequest("Biología", Account.FREE, 1L);
+        policy.validateRequest("Biología", Account.PREMIUM, 1L);
 
         verify(repository, never()).findFirstByUserIdAndStatusIn(anyLong(), any());
     }

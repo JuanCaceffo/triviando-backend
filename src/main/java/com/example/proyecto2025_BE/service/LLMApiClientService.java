@@ -34,10 +34,6 @@ public class LLMApiClientService {
         prompter.setUserId(userId);
         prompter.validatePrompt();
 
-        if (Account.FREE.equals(role)) {
-            prompter.validateGeneration(userId);
-        }
-
         List<String> existingEnunciados = prompter.existingEnunciados();
         QuestionList response = requestQuestions(prompter.buildPrompt(existingEnunciados));
 

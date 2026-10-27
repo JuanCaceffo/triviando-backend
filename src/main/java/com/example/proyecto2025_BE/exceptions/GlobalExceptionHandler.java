@@ -52,6 +52,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errors, responseStatus != null ? responseStatus.value() : HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Object> handleForbiddenException(ForbiddenException ex) {
+        Map<String, String> errors = new HashMap<>();
+        errors.put("error", ex.getMessage());
+        return new ResponseEntity<>(errors, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<Object> handleNotFoundtException(NotFoundException ex) {
         Map<String, String> errors = new HashMap<>();

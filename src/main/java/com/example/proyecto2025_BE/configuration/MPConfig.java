@@ -22,19 +22,19 @@ import lombok.extern.slf4j.Slf4j;
 public class MPConfig {
 	
 	// TODO: Estos valores deberían ir por profile config + env vars
-    private static final String PLAN_TITLE = "Suscripción mensual TrivIAndo";
-    private static final String PLAN_DESCRIPTION = "Acceso a funcionalidades premium de la aplicación";
+    private static final String PLAN_TITLE = "Acceso Premium TrivIAndo";
+    private static final String PLAN_DESCRIPTION = "Acceso a funcionalidades premium de la aplicación (pago único)";
     private static final String PLAN_CURRENCY = "ARS";
-    private static final BigDecimal PLAN_PRICE = BigDecimal.valueOf(100);
     private static final String FE_BASE_PATH = "/payment";
 
     private String feDomain;
     private String accessToken;
+    private String notificationUrl;
+    private String webhookSecret;
+    private BigDecimal planPrice = BigDecimal.valueOf(10000);
 	
 	@Bean
     public MercadoPagoConfig mercadoPagoConfig() {
-//		log.error("ACCESS TOKEN: {}", accessToken);
-//		log.error("FE TOKEN: {}", feDomain);
         MercadoPagoConfig.setAccessToken(accessToken);
         
         return new MercadoPagoConfig();
@@ -57,7 +57,7 @@ public class MPConfig {
                 .description(PLAN_DESCRIPTION)
                 .quantity(1)
                 .currencyId(PLAN_CURRENCY)
-                .unitPrice(PLAN_PRICE)
+                .unitPrice(planPrice)
                 .build();
 	}
 	
@@ -70,7 +70,16 @@ public class MPConfig {
                 .build();
 	}
 	
+	/**
+	 * Mercado Pago rechaza el checkout cuando la URL de retorno no es HTTPS
+	 * (por ejemplo, un FE_DOMAIN de localhost en desarrollo).
+	 */
+	public boolean hasSecureBackUrls() {
+		return feDomain != null && feDomain.regionMatches(true, 0, "https://", 0, "https://".length());
+	}
+
 	private String baseUrl() {
-		return feDomain + FE_BASE_PATH;
+		String domain = feDomain == null ? "" : feDomain.replaceAll("/+$", "");
+		return domain + FE_BASE_PATH;
 	}
 }

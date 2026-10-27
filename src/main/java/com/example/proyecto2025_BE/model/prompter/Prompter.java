@@ -88,6 +88,4 @@ public abstract class Prompter {
     public boolean existsTopic() {
         return question.existsByTopicAndUser(topic, userId);
     }
-
-    public abstract void validateGeneration(Long userId);
 }

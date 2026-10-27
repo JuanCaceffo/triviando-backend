@@ -61,6 +61,7 @@ Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios 
 
 ### Respuestas y suscripciones
 - `POST /answers` — responde una pregunta
+- `GET /suscriptions/plan` — devuelve precio, moneda y tipo de cobro del plan Premium (requiere JWT)
 - `POST /suscriptions?email=` — crea preferencia de checkout MercadoPago
 - `POST /suscriptions/payment` — webhook de notificación de pago
 
@@ -74,11 +75,11 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
    - **`questionPrompter`** (`QuestionPrompter`): tópico existente, 5 preguntas, reutiliza el emoji
 4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
 5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
-6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`
+6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`. Los usuarios FREE no tienen límite diario de temas ni de preguntas; la generación desde archivos es exclusiva de PREMIUM (403 para el resto).
 
 ### Generación desde archivo (asíncrona)
 
-1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (límites FREE, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
+1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (solo plan PREMIUM, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
 2. `GenerationJobService` guarda un `GenerationJob` en Mongo (`PENDING`) y `DocumentGenerationWorker` lo encola (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
 3. Si el texto supera `api.documents.prompt-budget-chars`, `DocumentContextBuilder` hace map-reduce con `DocumentSummarizer` (LangChain4j, system prompt propio) muestreando bloques distribuidos por todo el documento.
 4. Con el contexto resumido construye un `FilePrompter` mediante `FilePrompter.forDocument(...)` (extiende `TopicPrompter` y exige contexto) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
@@ -108,7 +109,9 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 
 ## Configuración y secretos
 
-- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `FE_DOMAIN`
+- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (URL HTTPS pública del webhook), `MP_WEBHOOK_SECRET` (clave del panel para validar `x-signature`), `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
+- En desarrollo usar credenciales **TEST** de Mercado Pago y un túnel HTTPS (ngrok/cloudflared) apuntando al backend para `MP_NOTIFICATION_URL`; `auto_return` solo se envía si `FE_DOMAIN` es HTTPS (Mercado Pago rechaza el checkout con back URLs `http://localhost`)
+- **El webhook `POST /suscriptions/payment` es público** (Mercado Pago no envía JWT): la autenticidad se valida con la firma `x-signature` y consultando el pago server-side. Si `MP_WEBHOOK_SECRET` está vacío, la validación de firma se omite (solo para desarrollo)
 - **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
 - La API key de OpenAI se inyecta en `LLMConfig` (`@ConfigurationProperties(prefix = "llm")`)
 

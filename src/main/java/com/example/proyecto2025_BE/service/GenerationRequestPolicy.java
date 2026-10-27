@@ -3,6 +3,7 @@ package com.example.proyecto2025_BE.service;
 import com.example.proyecto2025_BE.configuration.DocumentProperties;
 import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.exceptions.ConflictException;
+import com.example.proyecto2025_BE.exceptions.ForbiddenException;
 import com.example.proyecto2025_BE.exceptions.ValidationException;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.JobStatus;
@@ -10,13 +11,11 @@ import com.example.proyecto2025_BE.repository.GenerationJobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * Reglas de negocio que deben cumplirse antes de encolar una generación
- * desde archivo: tópico válido y nuevo, sin otro job activo y con cupo FREE.
+ * desde archivo: plan Premium, tópico válido y nuevo y sin otro job activo.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,9 +33,9 @@ public class GenerationRequestPolicy {
      */
     public String validateRequest(String topic, Account role, Long userId) {
         String cleanTopic = normalizeTopic(topic);
+        ensurePremium(role);
         ensureNoActiveJob(userId);
         ensureTopicIsNew(cleanTopic, userId);
-        ensureFreeQuota(role, userId);
         return cleanTopic;
     }
 
@@ -60,13 +59,9 @@ public class GenerationRequestPolicy {
         }
     }
 
-    private void ensureFreeQuota(Account role, Long userId) {
-        if (!Account.FREE.equals(role)) {
-            return;
-        }
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        if (!questionService.canCreateTopic(userId, startOfDay, startOfDay.plusDays(1))) {
-            throw ValidationException.build(Exceptions.TOPIC_LIMIT_REACHED);
+    private void ensurePremium(Account role) {
+        if (!Account.PREMIUM.equals(role)) {
+            throw ForbiddenException.build(Exceptions.PREMIUM_ONLY_DOCUMENT_GENERATION);
         }
     }
 }

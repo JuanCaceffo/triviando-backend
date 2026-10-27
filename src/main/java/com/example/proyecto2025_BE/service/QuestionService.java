@@ -12,7 +12,6 @@ import com.example.proyecto2025_BE.repository.QuestionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 
@@ -97,17 +96,5 @@ public class QuestionService implements IQuestion {
     @Override
     public void saveFeedback(FeedbackDTO feedbackDTO) {
         feedbackService.save(feedbackDTO);
-    }
-
-    @Override
-    public Boolean canCreateTopic(Long userId, LocalDateTime startOfDay, LocalDateTime endOfDay) {
-        Integer totalTopics = questionRepository.countDistinctTopics(userId, startOfDay, endOfDay);
-        return (totalTopics != null ? totalTopics : 0) < questionProperties.getMaxTopicsFreePerDay();
-    }
-
-    @Override
-    public Boolean canCreateQuestion(Long userId, LocalDateTime startOfDay, LocalDateTime endOfDay) {
-        List<Pregunta> userTopics = questionRepository.findByUserIdAndCreatedAtBetween(userId, startOfDay, endOfDay);
-        return userTopics.size() < questionProperties.getMaxQuestionsFreePerDay();
     }
 }

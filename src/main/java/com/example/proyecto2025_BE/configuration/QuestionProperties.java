@@ -12,14 +12,4 @@ public class QuestionProperties {
      * Cantidad de preguntas que se generan por tópico
      */
     private int questionsPerTopic;
-
-    /**
-     * Máximo de tópicos que un usuario FREE puede crear por día
-     */
-    private int maxTopicsFreePerDay;
-
-    /**
-     * Máximo de preguntas que un usuario FREE puede crear por día
-     */
-    private int maxQuestionsFreePerDay;
 }
