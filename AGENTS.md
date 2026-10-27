@@ -74,11 +74,11 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
    - **`questionPrompter`** (`QuestionPrompter`): tópico existente, 5 preguntas, reutiliza el emoji
 4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
 5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
-6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`
+6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`. Los usuarios FREE no tienen límite diario de temas ni de preguntas; la generación desde archivos es exclusiva de PREMIUM (403 para el resto).
 
 ### Generación desde archivo (asíncrona)
 
-1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (límites FREE, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
+1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (solo plan PREMIUM, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
 2. `GenerationJobService` guarda un `GenerationJob` en Mongo (`PENDING`) y `DocumentGenerationWorker` lo encola (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
 3. Si el texto supera `api.documents.prompt-budget-chars`, `DocumentContextBuilder` hace map-reduce con `DocumentSummarizer` (LangChain4j, system prompt propio) muestreando bloques distribuidos por todo el documento.
 4. Con el contexto resumido construye un `FilePrompter` mediante `FilePrompter.forDocument(...)` (extiende `TopicPrompter` y exige contexto) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
