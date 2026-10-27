@@ -2,6 +2,11 @@ server:
   port: ${API_PORT:8080}
 
 spring:
+  # H2 no soporta el dialecto de las migraciones MySQL; el esquema de test
+  # se sigue generando desde las entidades. La validación de Flyway se hace
+  # en el perfil de integración contra MySQL real.
+  flyway:
+    enabled: false
   h2:
     console:
       enabled: true
@@ -12,6 +17,8 @@ spring:
     password: admin
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
