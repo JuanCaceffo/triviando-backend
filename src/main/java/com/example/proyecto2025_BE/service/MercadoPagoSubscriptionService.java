@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.proyecto2025_BE.configuration.MPSerializer;
 import com.example.proyecto2025_BE.model.mp.PaymentNotification;
+import com.example.proyecto2025_BE.views.subscriptions.SubscriptionPlanResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
@@ -26,11 +27,20 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MercadoPagoSubscriptionService {
 
+	private static final String PLAN_BILLING_TYPE = "ONE_TIME";
+
 	private final UserService userService;
     private final PreferenceClient preferenceClient;
     private final PaymentClient paymentClient;
     private final PreferenceItemRequest preferenceItemRequest;
     private final PreferenceBackUrlsRequest preferenceBackUrlsRequest;
+
+    public SubscriptionPlanResponse getPlan() {
+        return new SubscriptionPlanResponse(
+                preferenceItemRequest.getUnitPrice(),
+                preferenceItemRequest.getCurrencyId(),
+                PLAN_BILLING_TYPE);
+    }
     
     public String createSubscriptionPreference(String email) {
     	log.error("Por crear PreferenceRequest");

@@ -22,14 +22,14 @@ import lombok.extern.slf4j.Slf4j;
 public class MPConfig {
 	
 	// TODO: Estos valores deberían ir por profile config + env vars
-    private static final String PLAN_TITLE = "Suscripción mensual TrivIAndo";
-    private static final String PLAN_DESCRIPTION = "Acceso a funcionalidades premium de la aplicación";
+    private static final String PLAN_TITLE = "Acceso Premium TrivIAndo";
+    private static final String PLAN_DESCRIPTION = "Acceso a funcionalidades premium de la aplicación (pago único)";
     private static final String PLAN_CURRENCY = "ARS";
-    private static final BigDecimal PLAN_PRICE = BigDecimal.valueOf(100);
     private static final String FE_BASE_PATH = "/payment";
 
     private String feDomain;
     private String accessToken;
+    private BigDecimal planPrice = BigDecimal.valueOf(10000);
 	
 	@Bean
     public MercadoPagoConfig mercadoPagoConfig() {
@@ -57,7 +57,7 @@ public class MPConfig {
                 .description(PLAN_DESCRIPTION)
                 .quantity(1)
                 .currencyId(PLAN_CURRENCY)
-                .unitPrice(PLAN_PRICE)
+                .unitPrice(planPrice)
                 .build();
 	}
 	

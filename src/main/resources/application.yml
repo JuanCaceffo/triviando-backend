@@ -46,3 +46,4 @@ api:
 mercadopago:
   accessToken: ${MP_ACCESS_TOKEN}
   feDomain: ${FE_DOMAIN}
+  planPrice: ${MP_PLAN_PRICE:10000}
