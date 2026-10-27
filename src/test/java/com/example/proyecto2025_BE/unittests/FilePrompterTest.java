@@ -1,7 +1,6 @@
 package com.example.proyecto2025_BE.unittests;
 
 import com.example.proyecto2025_BE.exceptions.ConflictException;
-import com.example.proyecto2025_BE.exceptions.ValidationException;
 import com.example.proyecto2025_BE.model.prompter.FilePrompter;
 import com.example.proyecto2025_BE.service.IQuestion;
 import com.example.proyecto2025_BE.service.ModelCommunication;
@@ -16,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -69,22 +67,6 @@ class FilePrompterTest {
         when(questionService.existsByTopicAndUser("Biología", 1L)).thenReturn(false);
 
         assertDoesNotThrow(() -> prompter.validatePrompt());
-    }
-
-    @Test
-    @DisplayName("validateGeneration falla cuando el usuario FREE agotó sus tópicos diarios")
-    void validateGenerationSinCupo() {
-        when(questionService.canCreateTopic(eq(1L), any(), any())).thenReturn(false);
-
-        assertThrows(ValidationException.class, () -> prompter.validateGeneration(1L));
-    }
-
-    @Test
-    @DisplayName("validateGeneration permite generar cuando hay cupo")
-    void validateGenerationConCupo() {
-        when(questionService.canCreateTopic(eq(1L), any(), any())).thenReturn(true);
-
-        assertDoesNotThrow(() -> prompter.validateGeneration(1L));
     }
 
     @Test

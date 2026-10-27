@@ -33,8 +33,6 @@ server:
 api:
   questions:
     questions-per-topic: 5
-    max-topics-free-per-day: 5
-    max-questions-free-per-day: 100
   documents:
     max-file-size-bytes: 10485760
     max-extracted-chars: 400000

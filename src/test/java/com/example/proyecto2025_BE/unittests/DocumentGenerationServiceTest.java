@@ -61,11 +61,11 @@ class DocumentGenerationServiceTest {
                 .status(JobStatus.PENDING)
                 .progress(0)
                 .build();
-        when(policy.validateRequest("Biología", Account.FREE, 1L)).thenReturn("Biología");
+        when(policy.validateRequest("Biología", Account.PREMIUM, 1L)).thenReturn("Biología");
         when(textExtractionService.extract(file)).thenReturn("texto extraído");
-        when(jobService.create(1L, Account.FREE, "Biología", "texto extraído")).thenReturn(job);
+        when(jobService.create(1L, Account.PREMIUM, "Biología", "texto extraído")).thenReturn(job);
 
-        GenerationJobCreatedResponse response = service.enqueue("Biología", file, Account.FREE, 1L);
+        GenerationJobCreatedResponse response = service.enqueue("Biología", file, Account.PREMIUM, 1L);
 
         assertEquals("job1", response.jobId());
         assertEquals("Biología", response.topic());

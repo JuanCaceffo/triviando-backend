@@ -62,7 +62,6 @@ public class LLMApiClientTest {
         when(prompter.getEmoji(any())).thenReturn("🔥");
 
         // Simular que no lanza excepción
-        doNothing().when(prompter).validateGeneration(anyLong());
         doNothing().when(prompter).validatePrompt();
 
         // Mockear la respuesta del assistant
@@ -72,7 +71,6 @@ public class LLMApiClientTest {
 
         assertNotNull(result);
         verify(prompter, times(1)).validatePrompt();
-        verify(prompter, times(1)).validateGeneration(1L);
         verify(prompter, times(1)).getEmoji(assistant);
         verify(questionService, times(1)).saveAll(anyList());
     }

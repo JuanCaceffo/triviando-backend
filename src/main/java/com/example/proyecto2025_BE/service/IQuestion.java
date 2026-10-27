@@ -4,7 +4,6 @@ import com.example.proyecto2025_BE.model.Pregunta;
 import com.example.proyecto2025_BE.model.dto.FeedbackDTO;
 import com.example.proyecto2025_BE.model.dto.Topics;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface IQuestion {
@@ -24,10 +23,5 @@ public interface IQuestion {
     String getTopicFromQuestion(String topic, Long userId);
 
     void saveFeedback(FeedbackDTO feedbackDTO);
-
-    Boolean canCreateTopic(Long userId, LocalDateTime startOfDay, LocalDateTime endOfDay);
-
-
-    Boolean canCreateQuestion(Long userId, LocalDateTime startOfDay, LocalDateTime endOfDay);
 
 }

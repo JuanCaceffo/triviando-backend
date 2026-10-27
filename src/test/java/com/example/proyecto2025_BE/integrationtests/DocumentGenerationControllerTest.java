@@ -1,5 +1,6 @@
 package com.example.proyecto2025_BE.integrationtests;
 
+import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.GeneratedTopic;
 import com.example.proyecto2025_BE.model.GenerationJob;
@@ -68,7 +69,7 @@ class DocumentGenerationControllerTest {
                 .id(1L)
                 .username("juanceto01")
                 .password("encoded")
-                .account(Account.FREE)
+                .account(Account.PREMIUM)
                 .build();
 
         jwtToken = jwtUtil.generateToken(
@@ -103,9 +104,30 @@ class DocumentGenerationControllerTest {
     }
 
     @Test
-    @DisplayName("POST sin token devuelve 401")
-    void sinTokenDevuelve401() throws Exception {
+    @DisplayName("POST con usuario FREE devuelve 403")
+    void usuarioFreeDevuelve403() throws Exception {
+        User freeUser = User.builder()
+                .id(2L)
+                .username("freeuser")
+                .password("encoded")
+                .account(Account.FREE)
+                .build();
+        String freeToken = jwtUtil.generateToken(
+                Map.of("id", freeUser.getId(), "fullname", "Free User", "account", freeUser.getAccount()),
+                freeUser.getUsername());
+        when(userRepository.findByUsername("freeuser")).thenReturn(Optional.of(freeUser));
+
         mockMvc.perform(multipart("/preguntas/document/generate")
+                        .file(archivoTxt())
+                        .param("topic", "Biología")
+                        .header("Authorization", "Bearer " + freeToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value(Exceptions.PREMIUM_ONLY_DOCUMENT_GENERATION));
+    }
+
+    @Test
+    @DisplayName("POST sin token devuelve 401")
+    void sinTokenDevuelve401() throws Exception {        mockMvc.perform(multipart("/preguntas/document/generate")
                         .file(archivoTxt())
                         .param("topic", "Biología"))
                 .andExpect(status().isUnauthorized());
