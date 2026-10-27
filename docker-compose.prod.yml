@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      # El compose base fuerza dev; este override se usa para el corte y la
+      # operación normal en producción.
+      - SPRING_PROFILES_ACTIVE=prod
