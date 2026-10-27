@@ -36,7 +36,9 @@ CREATE TABLE questions (
     difficulty ENUM ('LOW', 'MEDIUM', 'HIGH') NOT NULL,
     created_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_questions_topic_hash (topic_id, enunciado_hash),
+    -- Índice, no UNIQUE: la data histórica tiene enunciados repetidos y se
+    -- preservan todos. El dedup de contenido nuevo se hace en generación.
+    KEY idx_questions_topic_hash (topic_id, enunciado_hash),
     CONSTRAINT fk_questions_topic FOREIGN KEY (topic_id) REFERENCES topics (id) ON DELETE CASCADE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -99,7 +101,9 @@ CREATE TABLE legacy_id_map (
     question_id BIGINT NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (object_id),
-    UNIQUE KEY uk_legacy_id_map_question (question_id),
+    -- No es UNIQUE: varios ObjectId pueden representar el mismo enunciado
+    -- normalizado y deben mapear a la misma pregunta canónica.
+    KEY idx_legacy_id_map_question (question_id),
     CONSTRAINT fk_legacy_id_map_question FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
