@@ -5,7 +5,7 @@
 
 ## 0. Antes de empezar
 
-- [ ] El frontend tiene el build con IDs numéricos (`questionId`, `jobId`).
+- [x] Frontend adaptado a IDs numéricos (`questionId`, `jobId`): rama `feature/mysql-numeric-ids`, commit `211097c`; `tsc` y `next build` OK, Jest 389 tests.
 - [ ] El PR está revisado y la imagen se construyó desde el commit final.
 - [ ] Hay una ventana de 1–2 h y la app puede quedar en mantenimiento.
 - [ ] Se hizo un ensayo completo con un dump fresco de producción (ver §6).
