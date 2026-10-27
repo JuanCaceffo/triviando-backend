@@ -109,7 +109,9 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 
 ## Configuración y secretos
 
-- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
+- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (URL HTTPS pública del webhook), `MP_WEBHOOK_SECRET` (clave del panel para validar `x-signature`), `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
+- En desarrollo usar credenciales **TEST** de Mercado Pago y un túnel HTTPS (ngrok/cloudflared) apuntando al backend para `MP_NOTIFICATION_URL`; `auto_return` solo se envía si `FE_DOMAIN` es HTTPS (Mercado Pago rechaza el checkout con back URLs `http://localhost`)
+- **El webhook `POST /suscriptions/payment` es público** (Mercado Pago no envía JWT): la autenticidad se valida con la firma `x-signature` y consultando el pago server-side. Si `MP_WEBHOOK_SECRET` está vacío, la validación de firma se omite (solo para desarrollo)
 - **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
 - La API key de OpenAI se inyecta en `LLMConfig` (`@ConfigurationProperties(prefix = "llm")`)
 

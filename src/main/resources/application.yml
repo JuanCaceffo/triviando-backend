@@ -46,4 +46,6 @@ api:
 mercadopago:
   accessToken: ${MP_ACCESS_TOKEN}
   feDomain: ${FE_DOMAIN}
+  notificationUrl: ${MP_NOTIFICATION_URL:}
+  webhookSecret: ${MP_WEBHOOK_SECRET:}
   planPrice: ${MP_PLAN_PRICE:10000}

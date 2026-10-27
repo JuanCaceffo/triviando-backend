@@ -57,6 +57,9 @@ public class WebSecurityConfig {
                                 .requestMatchers(HttpMethod.POST, "/auth/forgot-password").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/verify-reset-code").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/reset-password").permitAll()
+                                // Mercado Pago no puede enviar JWT: la autenticidad se valida
+                                // con la firma x-signature y consultando el pago server-side.
+                                .requestMatchers(HttpMethod.POST, "/suscriptions/payment").permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",
                                         "/v3/api-docs/**",

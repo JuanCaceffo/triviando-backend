@@ -29,12 +29,12 @@ public class MPConfig {
 
     private String feDomain;
     private String accessToken;
+    private String notificationUrl;
+    private String webhookSecret;
     private BigDecimal planPrice = BigDecimal.valueOf(10000);
 	
 	@Bean
     public MercadoPagoConfig mercadoPagoConfig() {
-//		log.error("ACCESS TOKEN: {}", accessToken);
-//		log.error("FE TOKEN: {}", feDomain);
         MercadoPagoConfig.setAccessToken(accessToken);
         
         return new MercadoPagoConfig();
@@ -70,7 +70,16 @@ public class MPConfig {
                 .build();
 	}
 	
+	/**
+	 * Mercado Pago rechaza el checkout cuando la URL de retorno no es HTTPS
+	 * (por ejemplo, un FE_DOMAIN de localhost en desarrollo).
+	 */
+	public boolean hasSecureBackUrls() {
+		return feDomain != null && feDomain.regionMatches(true, 0, "https://", 0, "https://".length());
+	}
+
 	private String baseUrl() {
-		return feDomain + FE_BASE_PATH;
+		String domain = feDomain == null ? "" : feDomain.replaceAll("/+$", "");
+		return domain + FE_BASE_PATH;
 	}
 }
