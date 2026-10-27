@@ -8,10 +8,12 @@ import com.example.proyecto2025_BE.model.JobStatus;
 import com.example.proyecto2025_BE.model.User;
 import com.example.proyecto2025_BE.repository.GenerationJobRepository;
 import com.example.proyecto2025_BE.repository.QuestionRepository;
+import com.example.proyecto2025_BE.repository.TopicRepository;
 import com.example.proyecto2025_BE.repository.UserRepository;
 import com.example.proyecto2025_BE.security.JwtUtil;
 import com.example.proyecto2025_BE.service.DocumentGenerationWorker;
 import com.example.proyecto2025_BE.service.document.DocumentTextExtractionService;
+import com.example.proyecto2025_BE.utils.ContentNormalizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,8 @@ class DocumentGenerationControllerTest {
     @MockitoBean
     private QuestionRepository questionRepository;
     @MockitoBean
+    private TopicRepository topicRepository;
+    @MockitoBean
     private UserRepository userRepository;
 
     private String jwtToken;
@@ -86,7 +90,7 @@ class DocumentGenerationControllerTest {
         when(textExtractionService.extract(any(MultipartFile.class))).thenReturn("texto extraído");
         when(jobRepository.save(any(GenerationJob.class))).thenAnswer(invocation -> {
             GenerationJob job = invocation.getArgument(0);
-            job.setId("job1");
+            job.setId(1L);
             return job;
         });
 
@@ -95,12 +99,12 @@ class DocumentGenerationControllerTest {
                         .param("topic", "Biología")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/preguntas/document/jobs/job1")))
-                .andExpect(jsonPath("$.jobId").value("job1"))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/preguntas/document/jobs/1")))
+                .andExpect(jsonPath("$.jobId").value(1))
                 .andExpect(jsonPath("$.topic").value("Biología"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
-        verify(worker).process("job1");
+        verify(worker).process(1L);
     }
 
     @Test
@@ -156,7 +160,8 @@ class DocumentGenerationControllerTest {
     @Test
     @DisplayName("POST con tópico existente devuelve 409")
     void topicoExistenteDevuelve409() throws Exception {
-        when(questionRepository.existsByTopicoAndUserId("Biología", 1L)).thenReturn(true);
+        when(topicRepository.existsByUserIdAndNameNormalized(1L, ContentNormalizer.topicKey("Biología")))
+                .thenReturn(true);
 
         mockMvc.perform(multipart("/preguntas/document/generate")
                         .file(archivoTxt())
@@ -169,7 +174,7 @@ class DocumentGenerationControllerTest {
     @DisplayName("GET devuelve el estado y el resultado del job")
     void consultaJob() throws Exception {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .userId(1L)
                 .topic("Biología")
                 .status(JobStatus.COMPLETED)
@@ -177,12 +182,12 @@ class DocumentGenerationControllerTest {
                 .result(List.of(GeneratedTopic.builder().topic("Biología").size(10).emoji("🧬").build()))
                 .updatedAt(LocalDateTime.now())
                 .build();
-        when(jobRepository.findByIdAndUserId("job1", 1L)).thenReturn(Optional.of(job));
+        when(jobRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(job));
 
-        mockMvc.perform(get("/preguntas/document/jobs/{jobId}", "job1")
+        mockMvc.perform(get("/preguntas/document/jobs/{jobId}", 1L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.jobId").value("job1"))
+                .andExpect(jsonPath("$.jobId").value(1))
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.progress").value(100))
                 .andExpect(jsonPath("$.result[0].topic").value("Biología"))
@@ -193,9 +198,9 @@ class DocumentGenerationControllerTest {
     @Test
     @DisplayName("GET de un job inexistente o ajeno devuelve 404")
     void consultaJobInexistente() throws Exception {
-        when(jobRepository.findByIdAndUserId(eq("job1"), eq(1L))).thenReturn(Optional.empty());
+        when(jobRepository.findByIdAndUserId(eq(1L), eq(1L))).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/preguntas/document/jobs/{jobId}", "job1")
+        mockMvc.perform(get("/preguntas/document/jobs/{jobId}", 1L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isNotFound());
     }

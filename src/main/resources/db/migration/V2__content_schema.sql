@@ -50,7 +50,7 @@ CREATE TABLE question_options (
     letter ENUM ('A', 'B', 'C', 'D', 'E') NOT NULL,
     text TEXT NOT NULL,
     is_correct BIT(1) NOT NULL DEFAULT b'0',
-    position_order TINYINT NOT NULL,
+    position_order INT NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_question_options_letter (question_id, letter),
     CONSTRAINT fk_question_options_question FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
@@ -80,7 +80,7 @@ CREATE TABLE generation_jobs (
     role ENUM ('FREE', 'PREMIUM') NOT NULL,
     topic VARCHAR(120) DEFAULT NULL,
     status ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL,
-    progress TINYINT NOT NULL DEFAULT 0,
+    progress INT NOT NULL DEFAULT 0,
     extracted_text LONGTEXT DEFAULT NULL,
     result JSON DEFAULT NULL,
     error TEXT DEFAULT NULL,

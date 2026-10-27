@@ -31,6 +31,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +64,14 @@ public class UserService {
     public User retrieve(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.build(Exceptions.NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public User retrieveWithScore(Long id) {
+        User user = retrieve(id);
+        BigDecimal score = responseRepository.sumScoreByUserId(id);
+        user.setScore(score == null ? BigDecimal.ZERO : score);
+        return user;
     }
 
     public LoginResponseDTO update(User updatedUser) {
@@ -182,6 +191,7 @@ public class UserService {
         User user = userRepository.findById(projection.getId())
                 .orElseGet(User::new); // Fallback a un nuevo User si por alguna razón no existe
         user.setPosition(projection.getPosition());
+        user.setScore(projection.getScore());
         return user;
     }
 

@@ -32,7 +32,7 @@ public class DocumentGenerationWorker {
     private final GenerationJobMapper mapper;
 
     @Async("documentGenerationExecutor")
-    public void process(String jobId) {
+    public void process(Long jobId) {
         GenerationJob job = repository.findById(jobId).orElse(null);
         if (job == null || !JobStatus.PENDING.equals(job.getStatus())) {
             return;

@@ -77,7 +77,7 @@ class GenerationRequestPolicyTest {
     @DisplayName("Rechaza si el usuario ya tiene un job activo")
     void rechazaJobActivo() {
         when(repository.findFirstByUserIdAndStatusIn(eq(1L), any()))
-                .thenReturn(Optional.of(GenerationJob.builder().id("otro").build()));
+                .thenReturn(Optional.of(GenerationJob.builder().id(99L).build()));
 
         assertThrows(ConflictException.class,
                 () -> policy.validateRequest("Biología", Account.PREMIUM, 1L));

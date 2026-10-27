@@ -38,7 +38,7 @@ public class GenerationJobService {
                 .build());
     }
 
-    public GenerationJob getOwned(String jobId, Long userId) {
+    public GenerationJob getOwned(Long jobId, Long userId) {
         GenerationJob job = repository.findByIdAndUserId(jobId, userId)
                 .orElseThrow(() -> NotFoundException.build(Exceptions.GENERATION_JOB_NOT_FOUND));
         expireIfStale(job);

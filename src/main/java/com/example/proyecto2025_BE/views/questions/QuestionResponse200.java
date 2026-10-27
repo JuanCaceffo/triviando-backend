@@ -14,8 +14,8 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Pregunta generada")
 public class QuestionResponse200 {
 
-	@Schema(description = "ID de la pregunta", example = "bb5c6bf4-4dec-4ab7-b3fc-ac34940ccf6d")
-	private String id;
+	@Schema(description = "ID de la pregunta", example = "42")
+	private Long id;
 	@Schema(description = "Tópico de la pregunta", example = "Inteligencia Artificial y Aprendizaje Automático")
     private String topico;
 	@Schema(description = "Enunciado de la pregunta", example = "¿Qué es una 'red neuronal convolucional' (CNN) comúnmente utilizada para?")

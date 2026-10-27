@@ -43,13 +43,13 @@ class GenerationJobServiceTest {
     void creaJob() {
         when(repository.save(any(GenerationJob.class))).thenAnswer(invocation -> {
             GenerationJob job = invocation.getArgument(0);
-            job.setId("job1");
+            job.setId(1L);
             return job;
         });
 
         GenerationJob job = service.create(1L, Account.FREE, "Biología", "texto extraído");
 
-        assertEquals("job1", job.getId());
+        assertEquals(1L, job.getId());
         assertEquals(JobStatus.PENDING, job.getStatus());
         assertEquals(GenerationProgress.QUEUED, job.getProgress());
         assertEquals("texto extraído", job.getExtractedText());
@@ -61,14 +61,14 @@ class GenerationJobServiceTest {
     @DisplayName("Devuelve un job propio y reciente sin modificarlo")
     void devuelveJobPropio() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .userId(1L)
                 .status(JobStatus.PROCESSING)
                 .updatedAt(LocalDateTime.now())
                 .build();
-        when(repository.findByIdAndUserId("job1", 1L)).thenReturn(Optional.of(job));
+        when(repository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(job));
 
-        GenerationJob result = service.getOwned("job1", 1L);
+        GenerationJob result = service.getOwned(1L, 1L);
 
         assertEquals(job, result);
         verify(repository, never()).save(any());
@@ -77,25 +77,25 @@ class GenerationJobServiceTest {
     @Test
     @DisplayName("Un job ajeno o inexistente devuelve 404")
     void jobInexistente() {
-        when(repository.findByIdAndUserId("job1", 1L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> service.getOwned("job1", 1L));
+        assertThrows(NotFoundException.class, () -> service.getOwned(1L, 1L));
     }
 
     @Test
     @DisplayName("Un job sin avance se marca como expirado")
     void marcaJobExpirado() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .userId(1L)
                 .status(JobStatus.PROCESSING)
                 .progress(30)
                 .extractedText("texto")
                 .updatedAt(LocalDateTime.now().minusMinutes(30))
                 .build();
-        when(repository.findByIdAndUserId("job1", 1L)).thenReturn(Optional.of(job));
+        when(repository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(job));
 
-        GenerationJob result = service.getOwned("job1", 1L);
+        GenerationJob result = service.getOwned(1L, 1L);
 
         assertEquals(JobStatus.FAILED, result.getStatus());
         assertTrue(result.getError().contains("expiró"));

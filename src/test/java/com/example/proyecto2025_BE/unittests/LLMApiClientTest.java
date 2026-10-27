@@ -3,7 +3,9 @@ package com.example.proyecto2025_BE.unittests;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.Difficulty;
 import com.example.proyecto2025_BE.model.LetterOption;
+import com.example.proyecto2025_BE.model.Option;
 import com.example.proyecto2025_BE.model.Pregunta;
+import com.example.proyecto2025_BE.model.Topic;
 import com.example.proyecto2025_BE.model.dto.llm.Question;
 import com.example.proyecto2025_BE.model.dto.llm.QuestionList;
 import com.example.proyecto2025_BE.model.dto.llm.QuestionOption;
@@ -11,6 +13,7 @@ import com.example.proyecto2025_BE.model.prompter.Prompter;
 import com.example.proyecto2025_BE.service.IQuestion;
 import com.example.proyecto2025_BE.service.LLMApiClientService;
 import com.example.proyecto2025_BE.service.ModelCommunication;
+import com.example.proyecto2025_BE.repository.TopicRepository;
 import com.example.proyecto2025_BE.service.QuestionDeduplicationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,13 +34,22 @@ public class LLMApiClientTest {
     private LLMApiClientService llmService;
     private ModelCommunication assistant;
     private IQuestion questionService;
+    private TopicRepository topicRepository;
     private QuestionList mockQuestions;
 
     @BeforeEach
     void setup() {
         questionService = mock(IQuestion.class);
         assistant = mock(ModelCommunication.class);
-        llmService = new LLMApiClientService(assistant, questionService, new QuestionDeduplicationService());
+        topicRepository = mock(TopicRepository.class);
+        llmService = new LLMApiClientService(
+                assistant, questionService, new QuestionDeduplicationService(), topicRepository);
+
+        when(topicRepository.findByUserIdAndNameNormalized(anyLong(), anyString()))
+                .thenReturn(Optional.empty());
+        when(topicRepository.save(any(Topic.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(questionService.contarPreguntasPorTopicoDeUsuario(anyLong())).thenReturn(List.of());
         QuestionOption correct = new QuestionOption("Lenguaje de programación", LetterOption.A);
         QuestionOption wrong = new QuestionOption("Sistema operativo", LetterOption.B);
         QuestionOption wrong2 = new QuestionOption("Una Fruta", LetterOption.C);
@@ -60,6 +73,7 @@ public class LLMApiClientTest {
         when(prompter.buildPrompt(anyList())).thenReturn("mock prompt");
         when(prompter.existingEnunciados()).thenReturn(List.of());
         when(prompter.getEmoji(any())).thenReturn("🔥");
+        when(prompter.getTopic()).thenReturn("Java");
 
         // Simular que no lanza excepción
         doNothing().when(prompter).validatePrompt();
@@ -72,7 +86,14 @@ public class LLMApiClientTest {
         assertNotNull(result);
         verify(prompter, times(1)).validatePrompt();
         verify(prompter, times(1)).getEmoji(assistant);
-        verify(questionService, times(1)).saveAll(anyList());
+
+        ArgumentCaptor<List<Pregunta>> captor = ArgumentCaptor.forClass(List.class);
+        verify(questionService).saveAll(captor.capture());
+
+        Pregunta saved = captor.getValue().getFirst();
+        assertEquals("Java", saved.getTopico());
+        assertEquals(4, saved.getOptions().size());
+        assertEquals(1, saved.getOptions().stream().filter(Option::isCorrect).count());
     }
 
     @Test

@@ -55,23 +55,24 @@ public class FeedbackServiceTest {
                 feedback.getUserId().equals(negativeFeedbackDTO.userId()) &&
                         feedback.getQuestionId().equals(negativeFeedbackDTO.questionId()) &&
                         feedback.getFeedbackType().equals(Feedback.FeedbackOption.NEGATIVE) &&
-                        negativeFeedbackDTO.description() == null || feedback.getDescription().equals(negativeFeedbackDTO.description())
+                        (negativeFeedbackDTO.description() == null
+                                || feedback.getDescription().equals(negativeFeedbackDTO.description()))
         ));
     }
 
 
     public static FeedbackDTO createPositiveFeedbackDTO() {
         return FeedbackDTO.builder()
-                .userId(1)
-                .questionId("e3r4g5th4nb3rg4t")
+                .userId(1L)
+                .questionId(10L)
                 .feedbackType(Feedback.FeedbackOption.POSITIVE)
                 .build();
     }
 
     public static FeedbackDTO createNegativeFeedbackDTO() {
         return FeedbackDTO.builder()
-                .userId(2)
-                .questionId("e3r4g5th4nb3rg4t")
+                .userId(2L)
+                .questionId(10L)
                 .feedbackType(Feedback.FeedbackOption.NEGATIVE)
                 .description("This is a negative feedback")
                 .build();

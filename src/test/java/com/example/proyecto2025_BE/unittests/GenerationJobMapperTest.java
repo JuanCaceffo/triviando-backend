@@ -31,7 +31,7 @@ class GenerationJobMapperTest {
     @DisplayName("Mapea un job recién creado")
     void mapeaJobCreado() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .topic("Biología")
                 .status(JobStatus.PENDING)
                 .progress(0)
@@ -39,7 +39,7 @@ class GenerationJobMapperTest {
 
         GenerationJobCreatedResponse response = mapper.toCreatedResponse(job);
 
-        assertEquals("job1", response.jobId());
+        assertEquals(1L, response.jobId());
         assertEquals("Biología", response.topic());
         assertEquals(JobStatus.PENDING, response.status());
         assertEquals(0, response.progress());
@@ -49,7 +49,7 @@ class GenerationJobMapperTest {
     @DisplayName("Mapea un job con resultado")
     void mapeaJobConResultado() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .topic("Biología")
                 .status(JobStatus.COMPLETED)
                 .progress(100)
@@ -69,7 +69,7 @@ class GenerationJobMapperTest {
     @DisplayName("Un job sin resultado se mapea con result nulo")
     void mapeaJobSinResultado() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .topic("Biología")
                 .status(JobStatus.PROCESSING)
                 .progress(30)

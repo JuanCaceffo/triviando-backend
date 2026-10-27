@@ -5,7 +5,6 @@ import com.example.proyecto2025_BE.repository.ResponseRepository;
 import com.example.proyecto2025_BE.repository.UserRepository;
 import com.example.proyecto2025_BE.exceptions.ConflictException;
 import com.example.proyecto2025_BE.exceptions.NotFoundException;
-import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.User;
 import com.example.proyecto2025_BE.model.dto.StatsResponse;
 import com.example.proyecto2025_BE.model.dto.login.LoginRequestDTO;
@@ -55,98 +54,62 @@ public class UserServiceTest {
                 User.builder()
                         .id(1L)
                         .username("Usuario Uno")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("100.00"))
-                                        .build()))
+                        .score(new BigDecimal("100.00"))
                         .build(),
                 User.builder()
                         .id(2L)
                         .username("Usuario Dos")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("200.00"))
-                                        .build()))
+                        .score(new BigDecimal("200.00"))
                         .build(),
                 User.builder()
                         .id(3L)
                         .username("Usuario Tres")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("300.00"))
-                                        .build()))
+                        .score(new BigDecimal("300.00"))
                         .build(),
                 User.builder()
                         .id(4L)
                         .username("Usuario Cuatro")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("400.00"))
-                                        .build()))
+                        .score(new BigDecimal("400.00"))
                         .build(),
                 User.builder()
                         .id(5L)
                         .username("Usuario Cinco")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("500.00"))
-                                        .build()))
+                        .score(new BigDecimal("500.00"))
                         .build(),
                 User.builder()
                         .id(6L)
                         .username("Usuario Seis")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("600.00"))
-                                        .build()))
+                        .score(new BigDecimal("600.00"))
                         .build(),
                 User.builder()
                         .id(7L)
                         .username("Usuario Siete")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("700.00"))
-                                        .build()))
+                        .score(new BigDecimal("700.00"))
                         .build(),
                 User.builder()
                         .id(8L)
                         .username("Usuario Ocho")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("800.00"))
-                                        .build()))
+                        .score(new BigDecimal("800.00"))
                         .build(),
                 User.builder()
                         .id(9L)
                         .username("Usuario Nueve")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("900.00"))
-                                        .build()))
+                        .score(new BigDecimal("900.00"))
                         .build(),
                 User.builder()
                         .id(10L)
                         .username("Usuario Diez")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("1000.00"))
-                                        .build()))
+                        .score(new BigDecimal("1000.00"))
                         .build(),
                 User.builder()
                         .id(11L)
                         .username("Usuario Once")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("200.00"))
-                                        .build()))
+                        .score(new BigDecimal("200.00"))
                         .build(),
                 User.builder()
                         .id(12L)
                         .username("Usuario Doce")
-                        .answers(List.of(
-                                Answer.builder()
-                                        .score(new BigDecimal("300.00"))
-                                        .build()))
+                        .score(new BigDecimal("300.00"))
                         .build());
     }
 

@@ -14,7 +14,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 - **IA**: LangChain4j (`AiServices`) con OpenAI `gpt-4o-mini` (temperature 0, JSON schema estricto, chat memory de 10 mensajes)
 - **Auth**: JWT (jjwt) + BCrypt + Google Sign-In; **Pagos**: MercadoPago; **Docs**: Swagger (`/api/v1/swagger-ui`)
 - **Perfiles**: `dev` (default), `prod`, `test` (`src/main/resources/application*.yml`)
-- **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql + mongo)
+- **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql; `mongo-db` queda solo para el migrador legacy hasta el corte)
 
 ### Paquetes base: `src/main/java/com/example/proyecto2025_BE/`
 
@@ -22,7 +22,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 |---|---|
 | `controller` | Endpoints REST (Auth, User, Question, Answer, Subscription) |
 | `service` | Lógica de negocio (`IQuestion`, `LLMApiClientService`, `UserService`, etc.) |
-| `repository` | Repositorios Spring Data (JPA y Mongo) |
+| `repository` | Repositorios Spring Data JPA (Mongo solo en el migrador legacy) |
 | `model` | Entidades, DTOs (`model/dto`), prompters (`model/prompter`), MercadoPago (`model/mp`), rachas (`model/racha`) |
 | `configuration` | Beans: `LLMConfig`, `MPConfig`, `MySQLConfig`, Swagger, CORS, serializadores |
 | `security` | `WebSecurityConfig`, `JwtUtil`, `AuthTokenFilter`, `UserContext` |
@@ -30,16 +30,18 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 | `constants` | Prompts del LLM (`LLM.java`), mensajes de error, patrones |
 | `exceptions` | `GlobalExceptionHandler` |
 
-## Arquitectura de BD dual
+## Base de datos: MySQL único (Mongo legacy)
 
-- **MySQL 8 + JPA/Hibernate** (`ddl-auto: update` — **no hay Flyway ni Liquibase**; el esquema evoluciona por entidades):
-  - `User` (`users`), `Answer`, `Option` (`options`), `PasswordResetToken` (`password_reset_tokens`)
-- **MongoDB** (`@Document`):
-  - `Pregunta` (`preguntas`), `Respuesta` (`respuestas_usuario`), `Feedback`
-  - `GenerationJob` (`generation_jobs`) — jobs asíncronos de generación desde archivo (índice TTL 24 h)
-- **Tests**: H2 en memoria (`application-test.yml`)
+- **MySQL 8 + JPA/Hibernate + Flyway** (`ddl-auto: validate`; el esquema lo gobiernan las migraciones de `src/main/resources/db/migration`):
+  - `User` (`users`), `Answer` (`answer`), `PasswordResetToken` (`password_reset_tokens`)
+  - `Topic` (`topics`), `Pregunta` (`questions`), `Option` (`question_options`)
+  - `Feedback` (`feedback`), `GenerationJob` (`generation_jobs`)
+  - `legacy_id_map` — auditoría ObjectId de Mongo → PK de MySQL (solo migración)
+- **MongoDB**: ya no lo usa el runtime. Queda únicamente como fuente de lectura del migrador (`migration/`, perfil `migrate`) hasta completar el corte. No agregar entidades `@Document` nuevas.
+- **Jobs**: `generation_jobs` en MySQL; `GenerationJobCleanupService` borra los jobs de más de 24 h cada hora (reemplaza el TTL de Mongo).
+- **Tests**: H2 en memoria para unitarios/integración (`application-test.yml`, Flyway deshabilitado); las migraciones y el esquema real se validan contra MySQL en el ensayo de corte.
 
-Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios en preguntas/feedback = modificar entidades `@Document`. No esperar migraciones.
+Consecuencia: todo cambio de esquema requiere una migración Flyway nueva (`V4__...sql`) y actualizar la entidad; nunca `ddl-auto: update`.
 
 ## Endpoints clave (prefijo `/api/v1`)
 
@@ -74,22 +76,22 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
    - **`topicPrompter`** (`TopicPrompter`): tópico nuevo, 10 preguntas, rechaza si el tópico ya existe, genera emoji con una 2da llamada al LLM
    - **`questionPrompter`** (`QuestionPrompter`): tópico existente, 5 preguntas, reutiliza el emoji
 4. El prompt se construye con la plantilla de `Prompter` + system prompt en `constants/LLM.java`
-5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` → `QuestionService` guarda en Mongo
+5. `ModelCommunication` (interfaz construida en `configuration/LLMConfig` vía LangChain4j `AiServices`) devuelve un DTO `QuestionList` (`model/dto/llm`) → se mapea a `Pregunta` + `Option` → `QuestionService` guarda en MySQL (tópico único por usuario, opciones con `is_correct`)
 6. El rol (FREE/PREMIUM, enum `Account`) y el userId llegan del JWT vía `security/UserContext`. Los usuarios FREE no tienen límite diario de temas ni de preguntas; la generación desde archivos es exclusiva de PREMIUM (403 para el resto).
 
 ### Generación desde archivo (asíncrona)
 
 1. `POST /preguntas/document/generate` pasa por `GenerationRequestPolicy` (solo plan PREMIUM, tópico no duplicado, un job activo por usuario) y extrae el texto en memoria con `DocumentTextExtractionService` y las estrategias de `service/document` (PDFBox/POI/plano; validación, normalización y límites en `api.documents`).
-2. `GenerationJobService` guarda un `GenerationJob` en Mongo (`PENDING`) y `DocumentGenerationWorker` lo encola (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
+2. `GenerationJobService` guarda un `GenerationJob` en MySQL (`PENDING`) y `DocumentGenerationWorker` lo encola (`@Async("documentGenerationExecutor")`, pool acotado en `AsyncConfig`).
 3. Si el texto supera `api.documents.prompt-budget-chars`, `DocumentContextBuilder` hace map-reduce con `DocumentSummarizer` (LangChain4j, system prompt propio) muestreando bloques distribuidos por todo el documento.
 4. Con el contexto resumido construye un `FilePrompter` mediante `FilePrompter.forDocument(...)` (extiende `TopicPrompter` y exige contexto) y reutiliza `LLMApiClientService.generate` (dedup, emoji, persistencia en `preguntas`).
-5. El frontend consulta el job por polling (~2,5 s, timeout 5 min). `GenerationJobMapper` traduce entidad ↔ DTO; el texto extraído se borra del job al terminar y el documento Mongo expira por TTL.
+5. El frontend consulta el job por polling (~2,5 s, timeout 5 min). `GenerationJobMapper` traduce entidad ↔ DTO; el texto extraído se borra del job al terminar y `GenerationJobCleanupService` elimina los jobs de más de 24 h.
 6. PDFs escaneados no tienen OCR: se devuelve error de extracción.
 
 ## Comandos
 
 ```bash
-# Desarrollo (levanta app + MySQL + MongoDB)
+# Desarrollo (levanta app + MySQL; mongo-db queda para el migrador legacy)
 docker-compose up --build -d
 
 # O solo la app (requiere DBs corriendo y .env presente)
@@ -109,7 +111,8 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 
 ## Configuración y secretos
 
-- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (URL HTTPS pública del webhook), `MP_WEBHOOK_SECRET` (clave del panel para validar `x-signature`), `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
+- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (URL HTTPS pública del webhook), `MP_WEBHOOK_SECRET` (clave del panel para validar `x-signature`), `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
+- `MONGO_*` solo se usa con el perfil `migrate` (migrador legacy). El runtime no lee Mongo.
 - En desarrollo usar credenciales **TEST** de Mercado Pago y un túnel HTTPS (ngrok/cloudflared) apuntando al backend para `MP_NOTIFICATION_URL`; `auto_return` solo se envía si `FE_DOMAIN` es HTTPS (Mercado Pago rechaza el checkout con back URLs `http://localhost`)
 - **El webhook `POST /suscriptions/payment` es público** (Mercado Pago no envía JWT): la autenticidad se valida con la firma `x-signature` y consultando el pago server-side. Si `MP_WEBHOOK_SECRET` está vacío, la validación de firma se omite (solo para desarrollo)
 - **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
@@ -120,7 +123,8 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 ### Dónde agregar cada cosa
 - **Nuevo endpoint** → `controller/` (+ anotaciones Swagger) → lógica en `service/` → acceso a datos en `repository/`
 - **Nueva entidad MySQL** → `model/` con `@Entity` + repositorio JPA en `repository/`
-- **Nueva entidad Mongo** → `model/` con `@Document` + repositorio `MongoRepository`
+- **Cambio de esquema** → nueva migración Flyway en `src/main/resources/db/migration` + ajustar la entidad JPA (nunca `ddl-auto: update`)
+- **Entidad Mongo** → no agregar: el runtime usa solo MySQL; Mongo queda para el migrador legacy
 - **Configuración nueva** → `configuration/` (o `application*.yml` si es por perfil)
 - **Errores** → mensajes en `constants/Exceptions.java`, manejo en `exceptions/GlobalExceptionHandler.java`
 - **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/temperatura en `LLMConfig` + `application-{dev,prod}.yml`
@@ -128,6 +132,7 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 ### Testing (obligatorio)
 - Todo cambio funcional debe llegar con tests: unitarios en `src/test/.../unittests/`, de integración en `integrationtests/` (siguiendo los patrones de los tests existentes)
 - Ejecutar `./mvnw verify` antes de dar el cambio por terminado (compila + tests + JaCoCo)
+- Los tests corren con H2 y Flyway deshabilitado. Antes de desplegar un cambio de esquema, validar las migraciones y `ddl-auto: validate` contra una copia MySQL de producción (ver `C:\Users\Guglieffo\.opencode\plan\migracion-mysql.md`)
 
 ### Seguridad
 - **No modificar** `WebSecurityConfig`, `JwtUtil`, `AuthTokenFilter`, `AuthEntryPointJwt` sin revisión y justificación explícita: controlan qué rutas son públicas y cómo se valida el JWT

@@ -34,9 +34,9 @@ Grupo **Nullpointer**
 El backend está construido con:
 
 - **Java Spring Boot**
-- **Base de datos relacional**: SQL (MySQL/PostgreSQL)
-- **Base de datos NoSQL**: MongoDB
-- **Integración de IA**: Nomic Embeddings para generación de preguntas
+- **Base de datos**: MySQL 8 con migraciones Flyway
+- **MongoDB**: solo legacy, usado por el migrador de contenido hasta completar el corte
+- **Integración de IA**: OpenAI `gpt-4o-mini` vía LangChain4j
 
 > A futuro se espera incluir nuevas modalidades de juego, más personalización para el usuario y opciones de suscripción con funciones premium.
 

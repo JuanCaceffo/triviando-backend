@@ -5,7 +5,7 @@ import lombok.Builder;
 
 @Builder
 public record GenerationJobCreatedResponse(
-        String jobId,
+        Long jobId,
         String topic,
         JobStatus status,
         int progress

@@ -3,12 +3,13 @@ package com.example.proyecto2025_BE.service;
 import com.example.proyecto2025_BE.configuration.QuestionProperties;
 import com.example.proyecto2025_BE.constants.Exceptions;
 import com.example.proyecto2025_BE.exceptions.NotFoundException;
-import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.Pregunta;
-import com.example.proyecto2025_BE.model.User;
+import com.example.proyecto2025_BE.model.Topic;
 import com.example.proyecto2025_BE.model.dto.FeedbackDTO;
 import com.example.proyecto2025_BE.model.dto.Topics;
 import com.example.proyecto2025_BE.repository.QuestionRepository;
+import com.example.proyecto2025_BE.repository.TopicRepository;
+import com.example.proyecto2025_BE.utils.ContentNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,12 +21,12 @@ import java.util.Random;
 public class QuestionService implements IQuestion {
 
     private final QuestionRepository questionRepository;
-    private final UserService userService;
+    private final TopicRepository topicRepository;
     private final FeedbackService feedbackService;
     private final QuestionProperties questionProperties;
 
     @Override
-    public Pregunta getPreguntaById(String id) {
+    public Pregunta getPreguntaById(Long id) {
         return questionRepository
                 .findById(id)
                 .orElseThrow(() -> NotFoundException.build("No se encontro la pregunta con id: " + id));
@@ -33,19 +34,12 @@ public class QuestionService implements IQuestion {
 
     @Override
     public List<Topics> contarPreguntasPorTopicoDeUsuario(Long userId) {
-        var user = userService.retrieve(userId);
-
-        List<String> idPreguntas = user.getAnswers().stream()
-                .map(Answer::getQuestionId)
-                .toList();
-
-        return questionRepository.contarPreguntasPorTopicoIncluyendoRespondidas(idPreguntas, userId).stream()
-                .map(topic ->
-                        Topics.builder()
-                                .topic((String) topic.get("_id"))
-                                .size((Number) topic.get("cantidadPreguntas"))
-                                .emoji((String) topic.get("emoji"))
-                                .build())
+        return questionRepository.countUnansweredByTopic(userId).stream()
+                .map(topic -> Topics.builder()
+                        .topic(topic.getTopic())
+                        .size(Math.toIntExact(topic.getCantidad()))
+                        .emoji(topic.getEmoji())
+                        .build())
                 .toList();
     }
 
@@ -56,41 +50,44 @@ public class QuestionService implements IQuestion {
 
     @Override
     public boolean existsByTopicAndUser(String topic, Long userId) {
-        return questionRepository.existsByTopicoAndUserId(topic, userId);
+        return topicRepository.existsByUserIdAndNameNormalized(userId, ContentNormalizer.topicKey(topic));
     }
 
     @Override
     public List<Pregunta> findByTopicoAndUserId(String topico, Long userId) {
-        return questionRepository.findByTopicoAndUserId(topico, userId);
+        return topicRepository
+                .findByUserIdAndNameNormalized(userId, ContentNormalizer.topicKey(topico))
+                .map(topic -> questionRepository.findByTopic_Id(topic.getId()))
+                .orElse(List.of());
     }
 
     @Override
     public List<Pregunta> obtenerPreguntasNoRespondidasPorTopico(Long userId, String topico) {
-        var cantidadPreguntas = questionProperties.getQuestionsPerTopic();
+        List<Pregunta> candidatas = topico == null || topico.isBlank()
+                ? questionRepository.findNotAnsweredByUserId(userId)
+                : topicRepository
+                        .findByUserIdAndNameNormalized(userId, ContentNormalizer.topicKey(topico))
+                        .map(topic -> questionRepository.findNotAnsweredByTopicIdAndUserId(topic.getId(), userId))
+                        .orElse(List.of());
 
-        User user = userService.retrieve(userId);
-
-        List<String> preguntasRespondidasIds = user.getAnswers().stream()
-                .map(Answer::getQuestionId)
-                .toList();
-
-        List<Pregunta> preguntasNoRespondidas = questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(preguntasRespondidasIds, topico, user.getId()).stream()
-                .toList();
-
-        if (preguntasNoRespondidas.isEmpty()) {
+        if (candidatas.isEmpty()) {
             return List.of();
         }
 
-        return new Random().ints(0, preguntasNoRespondidas.size())
+        var cantidadPreguntas = questionProperties.getQuestionsPerTopic();
+        return new Random().ints(0, candidatas.size())
                 .distinct()
-                .limit(Math.min(cantidadPreguntas, preguntasNoRespondidas.size()))
-                .mapToObj(preguntasNoRespondidas::get)
+                .limit(Math.min(cantidadPreguntas, candidatas.size()))
+                .mapToObj(candidatas::get)
                 .toList();
     }
 
     @Override
     public String getTopicFromQuestion(String topic, Long userId) {
-        return questionRepository.getFirstByTopicoAndUserId(topic, userId).orElseThrow(() -> NotFoundException.build(Exceptions.NOT_FOUND)).getEmoji();
+        return topicRepository
+                .findByUserIdAndNameNormalized(userId, ContentNormalizer.topicKey(topic))
+                .map(Topic::getEmoji)
+                .orElseThrow(() -> NotFoundException.build(Exceptions.NOT_FOUND));
     }
 
     @Override

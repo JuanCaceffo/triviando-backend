@@ -56,7 +56,7 @@ class DocumentGenerationServiceTest {
     @DisplayName("Valida, extrae, crea el job y lo encola")
     void encolaJobExitosamente() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .topic("Biología")
                 .status(JobStatus.PENDING)
                 .progress(0)
@@ -67,10 +67,10 @@ class DocumentGenerationServiceTest {
 
         GenerationJobCreatedResponse response = service.enqueue("Biología", file, Account.PREMIUM, 1L);
 
-        assertEquals("job1", response.jobId());
+        assertEquals(1L, response.jobId());
         assertEquals("Biología", response.topic());
         assertEquals(JobStatus.PENDING, response.status());
-        verify(worker).process("job1");
+        verify(worker).process(1L);
     }
 
     @Test
@@ -88,15 +88,15 @@ class DocumentGenerationServiceTest {
     @DisplayName("Consulta un job propio a través del servicio de jobs")
     void consultaJob() {
         GenerationJob job = GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .topic("Biología")
                 .status(JobStatus.COMPLETED)
                 .progress(100)
                 .result(List.of(GeneratedTopic.builder().topic("Biología").size(10).emoji("🧬").build()))
                 .build();
-        when(jobService.getOwned("job1", 1L)).thenReturn(job);
+        when(jobService.getOwned(1L, 1L)).thenReturn(job);
 
-        GenerationJobResponse response = service.getJob("job1", 1L);
+        GenerationJobResponse response = service.getJob(1L, 1L);
 
         assertEquals(JobStatus.COMPLETED, response.status());
         assertEquals("🧬", response.result().getFirst().emoji());
@@ -105,9 +105,9 @@ class DocumentGenerationServiceTest {
     @Test
     @DisplayName("Propaga el 404 de un job ajeno o inexistente")
     void propagaJobInexistente() {
-        when(jobService.getOwned(eq("job1"), eq(1L)))
+        when(jobService.getOwned(eq(1L), eq(1L)))
                 .thenThrow(NotFoundException.build("no existe"));
 
-        assertThrows(NotFoundException.class, () -> service.getJob("job1", 1L));
+        assertThrows(NotFoundException.class, () -> service.getJob(1L, 1L));
     }
 }

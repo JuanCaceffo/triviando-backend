@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface IQuestion {
 
-    Pregunta getPreguntaById(String id);
+    Pregunta getPreguntaById(Long id);
 
     void saveAll(List<Pregunta> preguntas);
 
@@ -23,5 +23,4 @@ public interface IQuestion {
     String getTopicFromQuestion(String topic, Long userId);
 
     void saveFeedback(FeedbackDTO feedbackDTO);
-
 }

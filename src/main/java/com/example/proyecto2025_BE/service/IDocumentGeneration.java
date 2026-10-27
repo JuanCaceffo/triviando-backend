@@ -9,5 +9,5 @@ public interface IDocumentGeneration {
 
     GenerationJobCreatedResponse enqueue(String topic, MultipartFile file, Account role, Long userId);
 
-    GenerationJobResponse getJob(String jobId, Long userId);
+    GenerationJobResponse getJob(Long jobId, Long userId);
 }

@@ -1,17 +1,20 @@
 package com.example.proyecto2025_BE.integrationtests;
 
-import com.example.proyecto2025_BE.configuration.PreguntasData;
-import com.example.proyecto2025_BE.model.Answer;
 import com.example.proyecto2025_BE.model.Difficulty;
+import com.example.proyecto2025_BE.model.LetterOption;
+import com.example.proyecto2025_BE.model.Option;
 import com.example.proyecto2025_BE.model.Pregunta;
+import com.example.proyecto2025_BE.model.Topic;
 import com.example.proyecto2025_BE.model.User;
 import com.example.proyecto2025_BE.model.dto.FeedbackDTO;
 import com.example.proyecto2025_BE.model.dto.Topics;
 import com.example.proyecto2025_BE.repository.FeedbackRepository;
 import com.example.proyecto2025_BE.repository.QuestionRepository;
+import com.example.proyecto2025_BE.repository.TopicRepository;
 import com.example.proyecto2025_BE.repository.UserRepository;
 import com.example.proyecto2025_BE.security.JwtUtil;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.example.proyecto2025_BE.utils.ContentNormalizer;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,17 +30,19 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
-import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.example.proyecto2025_BE.unittests.FeedbackServiceTest.createNegativeFeedbackDTO;
 import static com.example.proyecto2025_BE.unittests.FeedbackServiceTest.createPositiveFeedbackDTO;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -45,42 +50,40 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("Preguntas Controller Test")
 class QuestionControllerTest {
 
-    private static String jwtToken;
-    private final String emojiCafe = "\uD83D\uDC0D";
+    private static final String EMOJI = "\uD83D\uDCDA";
+
+    private String jwtToken;
+
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
     private MockMvc mockMvc;
-    @MockitoBean
-    private QuestionRepository questionRepository;
-    @MockitoBean
-    private UserRepository userRepository;
     @Autowired
     private ObjectMapper objectMapper;
-    @MockitoBean
-    private FeedbackRepository feedbackRepository;
     @Autowired
     private PasswordEncoder encoder;
 
-    private User user;
+    @MockitoBean
+    private QuestionRepository questionRepository;
+    @MockitoBean
+    private TopicRepository topicRepository;
+    @MockitoBean
+    private UserRepository userRepository;
+    @MockitoBean
+    private FeedbackRepository feedbackRepository;
 
     @BeforeEach
-    public void setUp() {
-        var encodedPass = encoder.encode("pelele");
-        user = User.builder()
+    void setUp() {
+        User user = User.builder()
                 .id(1L)
                 .username("juanceto01")
-                .password(encodedPass)
+                .password(encoder.encode("pelele"))
                 .email("dsadsa@dsada.com")
                 .build();
+
         jwtToken = jwtUtil.generateToken(
-                Map.of(
-                        "id", user.getId(),
-                        "fullname", user.getFullName(),
-                        "account", user.getAccount()
-                ),
-                user.getUsername()
-        );
+                Map.of("id", user.getId(), "fullname", user.getFullName(), "account", user.getAccount()),
+                user.getUsername());
 
         when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(user));
     }
@@ -88,105 +91,93 @@ class QuestionControllerTest {
     @Test
     @DisplayName("Get preguntas by topico - topico existente")
     void getPreguntasByTopico_topicoExistente() throws Exception {
-        String topicoExistente = PreguntasData.PREGUNTAS.getFirst().getTopico();
-        when(userRepository.findById(anyLong())).thenReturn(Optional.of(User.builder().id(1L).build()));
-        List<Pregunta> preguntasTopicoExistente = PreguntasData.PREGUNTAS.stream()
-                .filter(pregunta -> pregunta.getTopico().equals(topicoExistente))
-                .toList();
+        Topic topic = topic(1L, "Java");
+        Pregunta pregunta = pregunta(10L, topic, "¿Qué es una clase?");
 
-        when(questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(anyList(), any(String.class), any(Long.class))).thenReturn(preguntasTopicoExistente);
-
+        when(topicRepository.findByUserIdAndNameNormalized(1L, ContentNormalizer.topicKey(topic.getName())))
+                .thenReturn(Optional.of(topic));
+        when(questionRepository.findNotAnsweredByTopicIdAndUserId(topic.getId(), 1L))
+                .thenReturn(List.of(pregunta));
 
         mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
                         .param("userId", "1")
-                        .param("topico", topicoExistente)
-                        .header("Authorization", "Bearer " + jwtToken)
-                )
+                        .param("topico", topic.getName())
+                        .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/json"))
-                .andExpect(content().json(objectMapper.writeValueAsString(preguntasTopicoExistente)));
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].topico").value("Java"))
+                .andExpect(jsonPath("$[0].enunciado").value("¿Qué es una clase?"));
     }
-
 
     @Test
     @DisplayName("Get preguntas by topico - user contesta preguntas")
     void getPreguntasByTopico_userContestaPreguntas() throws Exception {
-        String topicoExistente = PreguntasData.PREGUNTAS.getFirst().getTopico();
-        List<Pregunta> preguntasTopicoExistente = PreguntasData.PREGUNTAS.stream()
-                .filter(pregunta -> pregunta.getTopico().equals(topicoExistente))
-                .toList();
-        var user = userRepository.findByUsername("juanceto01").get();
+        Topic topic = topic(1L, "Java");
+        Pregunta pregunta = pregunta(10L, topic, "¿Qué es una interfaz?");
 
-        user.setAnswers(Collections.singletonList(Answer.builder()
-                .user(user)
-                .questionId(preguntasTopicoExistente.getFirst().getId())
-                .score(BigDecimal.valueOf(100.00))
-                .build()))
-        ;
-        userRepository.save(user);
-
-        when(questionRepository.findByTopicoAndUserId(anyString(), anyLong())).thenReturn(preguntasTopicoExistente);
-        when(userRepository.findById(anyLong())).thenReturn(Optional.of(User.builder()
-                .id(1L)
-                .answers(Collections.singletonList(Answer.builder()
-                        .user(User.builder().id(1L).build())
-                        .questionId(preguntasTopicoExistente.getFirst().getId())
-                        .score(BigDecimal.valueOf(100.00))
-                        .build()))
-                .build()));
-
-        List<Pregunta> resultadoEsperado = preguntasTopicoExistente.subList(1, preguntasTopicoExistente.size());
-        when(questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(any(), any(), any())).thenReturn(resultadoEsperado);
-
+        when(topicRepository.findByUserIdAndNameNormalized(1L, ContentNormalizer.topicKey(topic.getName())))
+                .thenReturn(Optional.of(topic));
+        when(questionRepository.findNotAnsweredByTopicIdAndUserId(topic.getId(), 1L))
+                .thenReturn(List.of(pregunta));
 
         mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
-                        .param("topico", topicoExistente)
-                        .param("userId", user.getId().toString())
+                        .param("topico", topic.getName())
+                        .param("userId", "1")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andExpect(content().json(objectMapper.writeValueAsString(resultadoEsperado)));
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].enunciado").value("¿Qué es una interfaz?"));
     }
 
     @Test
     @DisplayName("Get preguntas by topico - topico no existente")
     void getPreguntasByTopico_topicoNoExistente() throws Exception {
-        String topico = "Geografia";
-
-        when(questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(anyList(), anyString(), anyLong())).thenReturn(List.of());
-        when(userRepository.findById(anyLong())).thenReturn(Optional.of(User.builder().id(1L).build()));
+        when(topicRepository.findByUserIdAndNameNormalized(1L, ContentNormalizer.topicKey("Geografia")))
+                .thenReturn(Optional.empty());
 
         mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
-                        .param("topico", topico)
+                        .param("topico", "Geografia")
                         .param("userId", "1")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
                 .andExpect(content().json("[]"));
+    }
+
+    @Test
+    @DisplayName("Get preguntas sin topico devuelve todas las no respondidas")
+    void getPreguntasSinTopico() throws Exception {
+        Pregunta pregunta = pregunta(10L, topic(1L, "Java"), "¿Qué es un record?");
+
+        when(questionRepository.findNotAnsweredByUserId(1L)).thenReturn(List.of(pregunta));
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
+                        .param("userId", "1")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10));
     }
 
     @Test
     @DisplayName("Get preguntas by Id - Id existente")
     void getPreguntaById_IDValid() throws Exception {
-        Pregunta pregunta = PreguntasData.PREGUNTAS.getFirst();
+        Pregunta pregunta = pregunta(10L, topic(1L, "Java"), "¿Qué es una clase?");
 
-        when(questionRepository.findById(pregunta.getId())).thenReturn(Optional.of(pregunta));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(pregunta));
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/preguntas/{id}", pregunta.getId())
+        mockMvc.perform(MockMvcRequestBuilders.get("/preguntas/{id}", 10L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andExpect(content().json(objectMapper.writeValueAsString(pregunta)));
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.topico").value("Java"));
     }
 
     @Test
     @DisplayName("Get Preguntas by Id - Id no existente")
     void getPreguntaById_IDInValid() throws Exception {
-        String idInvalido = "ID_QUE_NO_EXISTE";
+        when(questionRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(questionRepository.findById(idInvalido)).thenReturn(Optional.empty());
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/preguntas/{id}", idInvalido)
+        mockMvc.perform(MockMvcRequestBuilders.get("/preguntas/{id}", 999L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isNotFound());
     }
@@ -194,67 +185,41 @@ class QuestionControllerTest {
     @Test
     @DisplayName("Get cantidad de preguntas por topico")
     void getCantidadPreguntasPorTopico() throws Exception {
+        when(questionRepository.countUnansweredByTopic(1L)).thenReturn(List.of(
+                new TopicCountStub("java", "☕", 5),
+                new TopicCountStub("python", EMOJI, 10)));
 
-        List<Map<String, Object>> resultadoDao = Arrays.asList(
-                Map.of("_id", "java", "cantidadPreguntas", 5, "emoji", "☕"),
-                Map.of("_id", "python", "cantidadPreguntas", 10, "emoji", emojiCafe),
-                Map.of("_id", "javascript", "cantidadPreguntas", 7, "emoji", emojiCafe)
-        );
-
-        when(userRepository.findById(anyLong())).thenReturn(Optional.of(User.builder().id(1L).build()));
-        when(questionRepository.contarPreguntasPorTopicoIncluyendoRespondidas(any(), anyLong())).thenReturn(resultadoDao);
-
-        List<Topics> resultadoEsperado = List.of(
-                Topics.builder()
-                        .topic("java")
-                        .size(5)
-                        .emoji("☕")
-                        .build(),
-                Topics.builder()
-                        .topic("python")
-                        .size(10)
-                        .emoji(emojiCafe)
-                        .build(),
-                Topics.builder()
-                        .topic("javascript")
-                        .size(7)
-                        .emoji(emojiCafe)
-                        .build()
-        );
+        List<Topics> expected = List.of(
+                Topics.builder().topic("java").size(5).emoji("☕").build(),
+                Topics.builder().topic("python").size(10).emoji(EMOJI).build());
 
         mockMvc.perform(MockMvcRequestBuilders.get("/preguntas/topicos/{id}", 1L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(content().json(objectMapper.writeValueAsString(resultadoEsperado)));
+                .andExpect(content().json(objectMapper.writeValueAsString(expected)));
     }
 
     @Test
     @DisplayName("Crear feedback positivo")
     void crearFeedbackPositivo() throws Exception {
-        feedbackRepository.deleteAll();
-        FeedbackDTO positiveFeedbackDTO = createPositiveFeedbackDTO();
-        String feedbackDtoJson = objectMapper.writeValueAsString(positiveFeedbackDTO);
-
+        FeedbackDTO dto = createPositiveFeedbackDTO();
 
         mockMvc.perform(MockMvcRequestBuilders.post("/preguntas/send-feedback")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(feedbackDtoJson)
+                        .content(objectMapper.writeValueAsString(dto))
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isCreated());
     }
 
     @Test
-    @DisplayName("Crear feedback positivo")
-    void crearFeedbacknegativo() throws Exception {
-        feedbackRepository.deleteAll();
-
-        FeedbackDTO negativeFeedbackDTO = createNegativeFeedbackDTO();
-        String feedbackDtoJson = objectMapper.writeValueAsString(negativeFeedbackDTO);
+    @DisplayName("Crear feedback negativo")
+    void crearFeedbackNegativo() throws Exception {
+        FeedbackDTO dto = createNegativeFeedbackDTO();
 
         mockMvc.perform(MockMvcRequestBuilders.post("/preguntas/send-feedback")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(feedbackDtoJson)
+                        .content(objectMapper.writeValueAsString(dto))
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isCreated());
     }
@@ -262,52 +227,73 @@ class QuestionControllerTest {
     @Test
     @DisplayName("Usuario carga solo sus topicos")
     void testCargarTopicosPropios() throws Exception {
-        Long userId = 1L;
-        Long userId2 = 2L;
-        String topico1 = "topico1";
-        String topico2 = "topico2";
-        Pregunta pregunta1User1 = crearPreguntaTest(userId, topico1);
-        Pregunta pregunta2User1 = crearPreguntaTest(userId, topico2);
-        Pregunta pregunta1User2 = crearPreguntaTest(userId2, topico2);
-        Pregunta pregunta2User2 = crearPreguntaTest(userId2, topico1);
-        List<Pregunta> preguntasUser1 = List.of(pregunta1User1, pregunta2User1);
-        List<Pregunta> preguntasUser2 = List.of(pregunta1User2, pregunta2User2);
+        Pregunta user1 = pregunta(10L, topic(1L, "topico1"), "Pregunta 1");
+        Pregunta user2 = pregunta(20L, topic(2L, "topico2"), "Pregunta 2");
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder().id(userId).build()));
-        when(userRepository.findById(userId2)).thenReturn(Optional.of(User.builder().id(userId2).build()));
-        when(questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(List.of(), null, userId)).thenReturn(preguntasUser1);
-        when(questionRepository.findPreguntasNotAnsweredByUserIdAndTopico(List.of(), null, userId2)).thenReturn(preguntasUser2);
+        when(questionRepository.findNotAnsweredByUserId(1L)).thenReturn(List.of(user1));
+        when(questionRepository.findNotAnsweredByUserId(2L)).thenReturn(List.of(user2));
 
         MvcResult resultUser1 = mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
-                        .param("userId", String.valueOf(userId))
+                        .param("userId", "1")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        List<Pregunta> list = objectMapper.readValue(resultUser1.getResponse().getContentAsString(), new TypeReference<List<Pregunta>>() {
-        });
-        assertTrue(list.stream().allMatch(p -> p.getUserId().equals(userId)));
+        JsonNode bodyUser1 = objectMapper.readTree(resultUser1.getResponse().getContentAsString());
+        assertTrue(bodyUser1.isArray());
+        assertTrue(bodyUser1.get(0).get("userId").asLong() == 1L);
 
         MvcResult resultUser2 = mockMvc.perform(MockMvcRequestBuilders.get("/preguntas")
-                        .param("userId", String.valueOf(userId2))
+                        .param("userId", "2")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        list = objectMapper.readValue(resultUser2.getResponse().getContentAsString(), new TypeReference<List<Pregunta>>() {
-        });
-        assertTrue(list.stream().allMatch(p -> p.getUserId().equals(userId2)));
+        JsonNode bodyUser2 = objectMapper.readTree(resultUser2.getResponse().getContentAsString());
+        assertTrue(bodyUser2.get(0).get("userId").asLong() == 2L);
     }
 
-    private Pregunta crearPreguntaTest(Long userId, String topico) {
+    private Topic topic(Long id, String name) {
+        return Topic.builder()
+                .id(id)
+                .userId(id)
+                .name(name)
+                .nameNormalized(ContentNormalizer.topicKey(name))
+                .emoji(EMOJI)
+                .build();
+    }
 
-        return Pregunta.builder()
-                .id(UUID.randomUUID().toString())
-                .topico(topico)
-                .userId(userId)
-                .options(List.of())
+    private Pregunta pregunta(Long id, Topic topic, String enunciado) {
+        Pregunta pregunta = Pregunta.builder()
+                .id(id)
+                .topic(topic)
+                .enunciado(enunciado)
                 .explicacion("explicacion")
                 .difficulty(Difficulty.MEDIUM)
+                .options(List.of(
+                        Option.builder().letter(LetterOption.A).text("A").correct(true).positionOrder(0).build(),
+                        Option.builder().letter(LetterOption.B).text("B").correct(false).positionOrder(1).build()))
                 .build();
+        pregunta.getOptions().forEach(option -> option.setQuestion(pregunta));
+        return pregunta;
+    }
+
+    private record TopicCountStub(String topic, String emoji, long cantidad)
+            implements QuestionRepository.TopicCount {
+
+        @Override
+        public String getTopic() {
+            return topic;
+        }
+
+        @Override
+        public String getEmoji() {
+            return emoji;
+        }
+
+        @Override
+        public long getCantidad() {
+            return cantidad;
+        }
     }
 }

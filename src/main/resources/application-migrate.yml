@@ -2,6 +2,17 @@ server:
   # El migrador no debe competir por el puerto de la app
   port: 0
 
+spring:
+  jpa:
+    hibernate:
+      # El migrador usa JdbcTemplate: no valida entidades porque corre sobre
+      # el esquema intermedio V2 (answer.question_id todavía es VARCHAR).
+      ddl-auto: none
+  flyway:
+    # El migrador corre con el esquema V2; V3 se aplica recién cuando
+    # arranca la aplicación nueva, después del backfill.
+    target: 2
+
 app:
   migration:
     # Seguro por defecto: hay que pasar --app.migration.dry-run=false para escribir

@@ -8,7 +8,7 @@ import java.util.List;
 
 @Builder
 public record GenerationJobResponse(
-        String jobId,
+        Long jobId,
         String topic,
         JobStatus status,
         int progress,

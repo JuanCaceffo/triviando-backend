@@ -142,7 +142,7 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = Exceptions.NOT_FOUND,
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse4XX.class)))})
     public ResponseEntity<User> retrieveScore(@PathVariable Long userId) {
-        User user = this.userService.retrieve(userId);
+        User user = this.userService.retrieveWithScore(userId);
         return ResponseEntity.ok(user);
     }
 

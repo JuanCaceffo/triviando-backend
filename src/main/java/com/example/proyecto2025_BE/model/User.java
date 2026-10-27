@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -19,14 +18,10 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.validation.constraints.Email;
@@ -85,11 +80,6 @@ public class User {
 	@UpdateTimestamp
 	private LocalDateTime updatedAt;
 
-	@Builder.Default
-	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-	@JoinColumn(name = "user_id")
-	private List<Answer> answers = new ArrayList<>();
-
 	@JsonView({
 		Views.Ranking.class,
 		Views.RegisterRequest.class,
@@ -111,6 +101,15 @@ public class User {
 	@Transient
 	private int position;
 
+	/**
+	 * Score agregado por consulta. Antes se calculaba recorriendo todas las
+	 * respuestas del usuario en memoria (relación EAGER).
+	 */
+	@Builder.Default
+	@Transient
+	@JsonView({Views.Ranking.class, Views.Score.class})
+	private BigDecimal score = BigDecimal.ZERO;
+
 	@JsonView({Views.GetUser.class})
 	@Builder.Default
 	private Account account = Account.FREE;
@@ -129,24 +128,9 @@ public class User {
 				: Period.between(birthDate, LocalDate.now()).getYears();
 	}
 
-	public void add(Answer answer) {
-		answers.add(answer);
-	}
-
-	@JsonView({Views.Ranking.class,Views.Score.class})
-	public BigDecimal getScore(){
-		return answers.stream()
-				.map(Answer::getScore)
-				.reduce(BigDecimal.ZERO,BigDecimal::add);
-	}
-
-	public BigDecimal getLastWeekScore(){
-		LocalDate today = LocalDate.now();
-		LocalDate lastWeek = today.minusWeeks(1);
-		return answers.stream()
-				.filter(answer -> answer.getResponseDate().isAfter(lastWeek))
-				.map(Answer::getScore)
-				.reduce(BigDecimal.ZERO,BigDecimal::add);
+	@JsonView({Views.Ranking.class, Views.Score.class})
+	public BigDecimal getScore() {
+		return score == null ? BigDecimal.ZERO : score;
 	}
 
 	public void actualizarRacha() {

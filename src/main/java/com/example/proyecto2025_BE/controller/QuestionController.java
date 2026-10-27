@@ -68,7 +68,7 @@ public class QuestionController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = QuestionResponse200.class))),
             @ApiResponse(responseCode = "404", description = Exceptions.NOT_FOUND, content = @Content)
     })
-    public Pregunta getPreguntaById(@PathVariable String id) {
+    public Pregunta getPreguntaById(@PathVariable Long id) {
         return preguntasService.getPreguntaById(id);
     }
 

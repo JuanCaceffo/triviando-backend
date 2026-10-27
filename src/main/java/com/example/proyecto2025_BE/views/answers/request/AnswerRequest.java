@@ -12,8 +12,8 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Representa los datos de entrada de la pregunta respondida")
 public class AnswerRequest {
 	 	
-	@Schema(description = "Id de pregunta respondida", example = "bb5c6bf4-4dec-4ab7-b3fc-ac34940ccf6d")
-	private String questionId;
+	@Schema(description = "Id de pregunta respondida", example = "42")
+	private Long questionId;
 	@Schema(description = "Usuario con su información",
 			example = "{\"id\": 123}")
 	private User user;

@@ -2,7 +2,18 @@ package com.example.proyecto2025_BE.model;
 
 import com.example.proyecto2025_BE.constants.UnsuccessReasons;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +27,10 @@ import java.time.LocalDate;
 @Data
 @Builder
 @Entity
+@Table(name = "answer",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_answer_user_question",
+                columnNames = {"user_id", "question_id"}))
 @AllArgsConstructor
 @NoArgsConstructor
 public class Answer {
@@ -31,27 +46,39 @@ public class Answer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @JsonIgnore
     private Long id;
-    private String questionId;
-    @ManyToOne
-    @JoinColumn(name = "user_id")
+
+    @Column(name = "question_id", nullable = false)
+    private Long questionId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
     @Enumerated(EnumType.STRING)
+    @Column(name = "option_selected")
     private LetterOption optionSelected;
+
+    @Column(name = "milliseconds_spent", nullable = false)
     private long millisecondsSpent;
+
+    @Column(name = "error_reason")
     @JsonIgnore
     private String errorReason;
+
+    @Column(name = "response_date")
     private LocalDate responseDate;
+
     private BigDecimal score = BigDecimal.ZERO;
 
     public void impactScore(Pregunta question) {
         if (isSuccess(question)) {
-            score =  calculateScoreBy(question);
-            return ;
+            score = calculateScoreBy(question);
+            return;
         }
         errorReason = errorReason != null ? errorReason : UnsuccessReasons.INCORRECT_OPTION;
     }
 
-    public BigDecimal getScore(){
+    public BigDecimal getScore() {
         return score == null ? BigDecimal.ZERO : score;
     }
 

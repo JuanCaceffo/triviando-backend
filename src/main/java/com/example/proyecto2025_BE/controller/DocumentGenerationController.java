@@ -66,7 +66,7 @@ public class DocumentGenerationController {
             @ApiResponse(responseCode = "200", description = "Estado obtenido exitosamente"),
             @ApiResponse(responseCode = "404", description = Exceptions.GENERATION_JOB_NOT_FOUND, content = @Content)
     })
-    public GenerationJobResponse getJob(@PathVariable String jobId) {
+    public GenerationJobResponse getJob(@PathVariable Long jobId) {
         return documentGeneration.getJob(jobId, userContext.getContextUserId());
     }
 }

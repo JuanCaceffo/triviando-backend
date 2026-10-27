@@ -1,47 +1,66 @@
 package com.example.proyecto2025_BE.repository;
 
 import com.example.proyecto2025_BE.model.Pregunta;
-import org.springframework.data.mongodb.repository.Aggregation;
-import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-public interface QuestionRepository extends MongoRepository<Pregunta, String> {
-    List<Pregunta> findByTopicoAndUserId(String topico, Long userId);
+public interface QuestionRepository extends JpaRepository<Pregunta, Long> {
 
-    boolean existsByTopicoAndUserId(String topico, Long userId);
+    List<Pregunta> findByTopic_Id(Long topicId);
 
+    Optional<Pregunta> findFirstByTopic_NameNormalizedAndTopic_UserId(String nameNormalized, Long userId);
 
-    @Aggregation(pipeline = {
-            "{ $match: { topico: ?1, userId: ?2, _id: { $nin: ?0 } } }"
-    })
-    List<Pregunta> findPreguntasNotAnsweredByUserIdAndTopico(List<String> idsQuestionsAnsweredByUserId, String topico, Long userId);
+    @Query("""
+            SELECT p
+            FROM Pregunta p
+            WHERE p.topic.userId = :userId
+              AND NOT EXISTS (
+                  SELECT a.id
+                  FROM Answer a
+                  WHERE a.user.id = :userId AND a.questionId = p.id
+              )
+            """)
+    List<Pregunta> findNotAnsweredByUserId(@Param("userId") Long userId);
 
-    @Aggregation(pipeline = {
-            "{ $match: { userId: ?0 } }",
-            "{ $group: { _id: '$topico', cantidadPreguntas: { $sum: 1 }, emoji: { $first: '$emoji' } } }"
-    })
-    List<Map<String, Object>> contarPreguntasPorTopico(Long userId);
+    @Query("""
+            SELECT p
+            FROM Pregunta p
+            WHERE p.topic.userId = :userId
+              AND p.topic.id = :topicId
+              AND NOT EXISTS (
+                  SELECT a.id
+                  FROM Answer a
+                  WHERE a.user.id = :userId AND a.questionId = p.id
+              )
+            """)
+    List<Pregunta> findNotAnsweredByTopicIdAndUserId(
+            @Param("topicId") Long topicId,
+            @Param("userId") Long userId);
 
-    List<Pregunta> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
+    @Query("""
+            SELECT t.name AS topic, t.emoji AS emoji, COUNT(p) AS cantidad
+            FROM Pregunta p
+            JOIN p.topic t
+            WHERE t.userId = :userId
+              AND NOT EXISTS (
+                  SELECT a.id
+                  FROM Answer a
+                  WHERE a.user.id = :userId AND a.questionId = p.id
+              )
+            GROUP BY t.id, t.name, t.emoji
+            ORDER BY t.name
+            """)
+    List<TopicCount> countUnansweredByTopic(@Param("userId") Long userId);
 
-    @Aggregation(pipeline = {
-            "{ '$match': { 'userId': ?0, 'createdAt': { $gte: ?1, $lt: ?2 } } }",
-            "{ '$group': { '_id': '$topico' } }",
-            "{ '$count': 'distinctTopics' }"
-    })
-    Integer countDistinctTopics(Long userId, LocalDateTime startOfDay, LocalDateTime endOfDay);
+    interface TopicCount {
+        String getTopic();
 
-    @Aggregation(pipeline = {
-            "{ $match: { userId: ?1 } }",
-            "{ $group: { _id: '$topico', todasLasPreguntas: { $push: '$_id' }, emoji: { $first: '$emoji' } } }",
-            "{ $addFields: { cantidadPreguntas: { $size: { $filter: { input: '$todasLasPreguntas', as: 'preguntaId', cond: { $not: { $in: [ {$toString: '$$preguntaId'}, ?0] } } } } } } }"
-    })
-    List<Map<String, Object>> contarPreguntasPorTopicoIncluyendoRespondidas(List<String> preguntasRespondidasIds, Long userId);
+        String getEmoji();
 
-
-    Optional<Pregunta> getFirstByTopicoAndUserId(String topico, Long userId);
+        long getCantidad();
+    }
 }

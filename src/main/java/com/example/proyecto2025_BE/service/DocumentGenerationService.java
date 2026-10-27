@@ -35,7 +35,7 @@ public class DocumentGenerationService implements IDocumentGeneration {
     }
 
     @Override
-    public GenerationJobResponse getJob(String jobId, Long userId) {
+    public GenerationJobResponse getJob(Long jobId, Long userId) {
         return mapper.toResponse(jobService.getOwned(jobId, userId));
     }
 }

@@ -24,6 +24,7 @@ services:
     networks:
       - flashcardsnet
 
+  # Solo para el migrador legacy (perfil `migrate`). Retirar después del corte.
   mongo-db:
     image: mongo:latest
     container_name: mongo-db

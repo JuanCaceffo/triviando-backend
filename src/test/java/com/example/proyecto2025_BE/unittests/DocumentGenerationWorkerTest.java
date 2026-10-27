@@ -55,12 +55,12 @@ class DocumentGenerationWorkerTest {
     @DisplayName("Procesa el job, guarda el resultado y lo marca como completado")
     void procesaJobExitosamente() {
         GenerationJob job = crearJob(JobStatus.PENDING, "texto crudo");
-        when(repository.findById("job1")).thenReturn(Optional.of(job));
+        when(repository.findById(1L)).thenReturn(Optional.of(job));
         when(contextBuilder.buildContext(anyString(), any())).thenReturn("contexto resumido");
         when(llmApiClientService.generate(any(FilePrompter.class), eq(Account.FREE), eq(1L)))
                 .thenReturn(List.of(Topics.builder().topic("Biología").size(10).emoji("🧬").build()));
 
-        worker.process("job1");
+        worker.process(1L);
 
         assertEquals(JobStatus.COMPLETED, job.getStatus());
         assertEquals(100, job.getProgress());
@@ -79,10 +79,10 @@ class DocumentGenerationWorkerTest {
     @DisplayName("Si el resumen falla marca el job como fallido con mensaje genérico")
     void fallaDuranteElResumen() {
         GenerationJob job = crearJob(JobStatus.PENDING, "texto crudo");
-        when(repository.findById("job1")).thenReturn(Optional.of(job));
+        when(repository.findById(1L)).thenReturn(Optional.of(job));
         when(contextBuilder.buildContext(anyString(), any())).thenThrow(new IllegalStateException("boom"));
 
-        worker.process("job1");
+        worker.process(1L);
 
         assertEquals(JobStatus.FAILED, job.getStatus());
         assertEquals(Exceptions.GENERATION_FAILED, job.getError());
@@ -93,12 +93,12 @@ class DocumentGenerationWorkerTest {
     @DisplayName("Un error de validación conserva su mensaje para el usuario")
     void fallaEnLaGeneracionConMensajeDeValidacion() {
         GenerationJob job = crearJob(JobStatus.PENDING, "texto crudo");
-        when(repository.findById("job1")).thenReturn(Optional.of(job));
+        when(repository.findById(1L)).thenReturn(Optional.of(job));
         when(contextBuilder.buildContext(anyString(), any())).thenReturn("contexto");
         when(llmApiClientService.generate(any(FilePrompter.class), any(), any()))
                 .thenThrow(ValidationException.build("El tópico ya no está disponible"));
 
-        worker.process("job1");
+        worker.process(1L);
 
         assertEquals(JobStatus.FAILED, job.getStatus());
         assertEquals("El tópico ya no está disponible", job.getError());
@@ -108,9 +108,9 @@ class DocumentGenerationWorkerTest {
     @DisplayName("Ignora un job que ya no está pendiente")
     void ignoraJobNoPendiente() {
         GenerationJob job = crearJob(JobStatus.COMPLETED, "texto crudo");
-        when(repository.findById("job1")).thenReturn(Optional.of(job));
+        when(repository.findById(1L)).thenReturn(Optional.of(job));
 
-        worker.process("job1");
+        worker.process(1L);
 
         verifyNoInteractions(contextBuilder, llmApiClientService);
         verify(repository, never()).save(any());
@@ -119,16 +119,16 @@ class DocumentGenerationWorkerTest {
     @Test
     @DisplayName("Ignora un job inexistente")
     void ignoraJobInexistente() {
-        when(repository.findById("job1")).thenReturn(Optional.empty());
+        when(repository.findById(1L)).thenReturn(Optional.empty());
 
-        worker.process("job1");
+        worker.process(1L);
 
         verifyNoInteractions(contextBuilder, llmApiClientService);
     }
 
     private GenerationJob crearJob(JobStatus status, String extractedText) {
         return GenerationJob.builder()
-                .id("job1")
+                .id(1L)
                 .userId(1L)
                 .role(Account.FREE)
                 .topic("Biología")

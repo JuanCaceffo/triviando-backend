@@ -3,12 +3,12 @@ package com.example.proyecto2025_BE.service;
 import com.example.proyecto2025_BE.model.dto.llm.Question;
 import org.springframework.stereotype.Service;
 
-import java.text.Normalizer;
+import com.example.proyecto2025_BE.utils.ContentNormalizer;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -38,14 +38,7 @@ public class QuestionDeduplicationService {
     }
 
     public static String normalize(String text) {
-        if (text == null) {
-            return "";
-        }
-        String withoutAccents = Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-        return withoutAccents.toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9\\s]", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
+        return ContentNormalizer.normalize(text);
     }
 
     private boolean isDuplicate(String normalized, List<String> seen) {

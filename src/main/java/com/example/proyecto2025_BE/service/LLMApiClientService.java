@@ -3,17 +3,21 @@ package com.example.proyecto2025_BE.service;
 import com.example.proyecto2025_BE.model.Account;
 import com.example.proyecto2025_BE.model.Option;
 import com.example.proyecto2025_BE.model.Pregunta;
+import com.example.proyecto2025_BE.model.Topic;
 import com.example.proyecto2025_BE.model.dto.Topics;
 import com.example.proyecto2025_BE.model.dto.llm.Question;
 import com.example.proyecto2025_BE.model.dto.llm.QuestionList;
 import com.example.proyecto2025_BE.model.dto.llm.QuestionOption;
 import com.example.proyecto2025_BE.model.prompter.Prompter;
+import com.example.proyecto2025_BE.repository.TopicRepository;
+import com.example.proyecto2025_BE.utils.ContentNormalizer;
 import dev.langchain4j.exception.LangChain4jException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +31,7 @@ public class LLMApiClientService {
     private final ModelCommunication assistant;
     private final IQuestion IQuestion;
     private final QuestionDeduplicationService deduplicationService;
+    private final TopicRepository topicRepository;
 
     @Transactional
     public List<Topics> generate(Prompter prompter, Account role, Long userId) {
@@ -80,39 +85,59 @@ public class LLMApiClientService {
         }
     }
 
-    //TODO: evaluar la posibilidad de utilizar el strategy para realizar el parseo y el guardado de los datos para darle mas versatilidad a la integración
     private List<Topics> saveAndMappingResponse(List<Question> questions, Prompter prompter, String emoji) {
-
-        List<Pregunta> preguntas = questions.stream().map(question ->
-                        Pregunta.builder()
-                                .topico(prompter.getTopic())
-                                .userId(prompter.getUserId())
-                                .emoji(emoji)
-                                .enunciado(question.text())
-                                .options(buildIncorrectOptions(question.options()))
-                                .correctOption(buildCorrectOption(question.correctOption()))
-                                .explicacion(question.briefExplanationOfTheCorrectAnswer())
-                                .difficulty(question.difficulty())
-                                .build())
+        Topic topic = resolveTopic(prompter, emoji);
+        List<Pregunta> preguntas = questions.stream()
+                .map(question -> toPregunta(question, topic))
                 .toList();
-        IQuestion.saveAll(preguntas);
 
+        IQuestion.saveAll(preguntas);
         return IQuestion.contarPreguntasPorTopicoDeUsuario(prompter.getUserId());
     }
 
-    private Option buildCorrectOption(QuestionOption correctOption) {
-        return Option.builder()
-                .text(correctOption.text())
-                .letter(correctOption.letter())
-                .build();
+    private Topic resolveTopic(Prompter prompter, String emoji) {
+        String normalized = ContentNormalizer.topicKey(prompter.getTopic());
+        return topicRepository.findByUserIdAndNameNormalized(prompter.getUserId(), normalized)
+                .orElseGet(() -> topicRepository.save(Topic.builder()
+                        .userId(prompter.getUserId())
+                        .name(ContentNormalizer.displayName(prompter.getTopic()))
+                        .nameNormalized(normalized)
+                        .emoji(emoji)
+                        .createdAt(LocalDateTime.now())
+                        .build()));
     }
 
-    private List<Option> buildIncorrectOptions(List<QuestionOption> incorrectOptions) {
-        return incorrectOptions.stream().map(option ->
-                        Option.builder()
-                                .text(option.text())
-                                .letter(option.letter())
-                                .build())
-                .toList();
+    private Pregunta toPregunta(Question question, Topic topic) {
+        Pregunta pregunta = Pregunta.builder()
+                .topic(topic)
+                .enunciado(question.text())
+                .explicacion(question.briefExplanationOfTheCorrectAnswer())
+                .difficulty(question.difficulty())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        List<QuestionOption> allOptions = question.options() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(question.options());
+
+        // El LLM normalmente devuelve las 4 opciones juntas; si la correcta
+        // viniera solo en correctOption, se agrega para no perderla.
+        if (allOptions.stream().noneMatch(option -> option.letter().equals(question.correctOption().letter()))) {
+            allOptions.add(question.correctOption());
+        }
+
+        List<Option> options = new ArrayList<>();
+        for (int position = 0; position < allOptions.size(); position++) {
+            QuestionOption option = allOptions.get(position);
+            options.add(Option.builder()
+                    .question(pregunta)
+                    .letter(option.letter())
+                    .text(option.text())
+                    .correct(option.letter().equals(question.correctOption().letter()))
+                    .positionOrder(position)
+                    .build());
+        }
+        pregunta.setOptions(options);
+        return pregunta;
     }
 }
