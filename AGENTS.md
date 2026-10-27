@@ -61,6 +61,7 @@ Consecuencia: cambios de esquema MySQL = modificar entidades `@Entity`; cambios 
 
 ### Respuestas y suscripciones
 - `POST /answers` — responde una pregunta
+- `GET /suscriptions/plan` — devuelve precio, moneda y tipo de cobro del plan Premium (requiere JWT)
 - `POST /suscriptions?email=` — crea preferencia de checkout MercadoPago
 - `POST /suscriptions/payment` — webhook de notificación de pago
 
@@ -108,7 +109,7 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 
 ## Configuración y secretos
 
-- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `FE_DOMAIN`
+- Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MONGO_*`, `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
 - **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
 - La API key de OpenAI se inyecta en `LLMConfig` (`@ConfigurationProperties(prefix = "llm")`)
 
