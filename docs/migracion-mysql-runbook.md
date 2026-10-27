@@ -3,6 +3,12 @@
 > Rama: `migration/mysql` · Migraciones: V1/V2/V3 · Migrador: perfil `migrate`
 > Última actualización: 2026-10-27
 
+> **Producción real:** el compose vive en `/home/juan/triviando/docker-compose.yml`,
+> proyecto `triviando`, servicio **`backend`** (imagen `triviando-backend`).
+> Donde este runbook diga `app`, en ese servidor usar `backend`.
+> En producción **no** se usa `docker-compose.prod.yml`: ese override es para el
+> compose del repo (`app`); el compose de `/home/juan/triviando` ya define `prod`.
+
 ## 0. Antes de empezar
 
 - [x] Frontend adaptado a IDs numéricos (`questionId`, `jobId`): rama `feature/mysql-numeric-ids`, commit `211097c`; `tsc` y `next build` OK, Jest 389 tests.
@@ -207,15 +213,28 @@ Luego:
 
 ### Si falla después de V3
 
-V3 eliminó `answer.question_id` viejo. El rollback requiere restaurar el backup:
+V3 eliminó `answer.question_id` viejo y la tabla `options`: **retaggear la imagen
+vieja no alcanza**, hay que restaurar MySQL. Mongo queda intacto.
 
 ```bash
-docker compose stop app
-# restaurar backup-mysql-$STAMP.sql en el contenedor/DB
-docker compose up -d app   # imagen anterior
+cd /home/juan/triviando
+sudo docker compose stop backend
+
+# Restaurar el dump del corte (root del contenedor; el dump trae los CREATE TABLE)
+sudo docker exec mysql-db sh -c \
+  'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e \
+   "DROP DATABASE flashcards; CREATE DATABASE flashcards CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"'
+sudo docker exec -i mysql-db sh -c \
+  'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" flashcards' \
+  < /home/triviando-backup/dumps/cutover-mysql-20261027-1728.sql
+
+# Volver a la imagen anterior
+sudo docker tag triviando-backend:rollback-20261027-1728 triviando-backend:latest
+sudo docker compose up -d --force-recreate backend
 ```
 
-Mongo queda intacto. **No borrar el volumen de Mongo hasta 7 días después del corte.**
+El backup de Mongo no se restaura: la app vieja sigue leyendo la colección intacta.
+**No borrar el volumen de Mongo ni los backups hasta 7 días después del corte.**
 
 ---
 
