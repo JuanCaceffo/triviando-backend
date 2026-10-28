@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * Reemplaza el TTL de 24 h que tenía la colección Mongo de jobs.
  * Se ejecuta cada hora y borra los jobs cuya creación supera la retención.
  */
 @Slf4j

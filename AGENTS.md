@@ -14,7 +14,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 - **IA**: LangChain4j (`AiServices`) con OpenAI `gpt-4o-mini` (temperature 0, JSON schema estricto, chat memory de 10 mensajes)
 - **Auth**: JWT (jjwt) + BCrypt + Google Sign-In; **Pagos**: MercadoPago; **Docs**: Swagger (`/api/v1/swagger-ui`)
 - **Perfiles**: `dev` (default), `prod`, `test` (`src/main/resources/application*.yml`)
-- **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql; `mongo-db` queda solo para el migrador legacy hasta el corte)
+- **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql)
 
 ### Paquetes base: `src/main/java/com/example/proyecto2025_BE/`
 
@@ -22,7 +22,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 |---|---|
 | `controller` | Endpoints REST (Auth, User, Question, Answer, Subscription) |
 | `service` | Lógica de negocio (`IQuestion`, `LLMApiClientService`, `UserService`, etc.) |
-| `repository` | Repositorios Spring Data JPA (Mongo solo en el migrador legacy) |
+| `repository` | Repositorios Spring Data JPA |
 | `model` | Entidades, DTOs (`model/dto`), prompters (`model/prompter`), MercadoPago (`model/mp`), rachas (`model/racha`) |
 | `configuration` | Beans: `LLMConfig`, `MPConfig`, `MySQLConfig`, Swagger, CORS, serializadores |
 | `security` | `WebSecurityConfig`, `JwtUtil`, `AuthTokenFilter`, `UserContext` |
@@ -30,16 +30,15 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 | `constants` | Prompts del LLM (`LLM.java`), mensajes de error, patrones |
 | `exceptions` | `GlobalExceptionHandler` |
 
-## Base de datos: MySQL único (Mongo legacy)
+## Base de datos: MySQL único
 
 - **MySQL 8 + JPA/Hibernate + Flyway** (`ddl-auto: validate`; el esquema lo gobiernan las migraciones de `src/main/resources/db/migration`):
   - `User` (`users`), `Answer` (`answer`), `PasswordResetToken` (`password_reset_tokens`)
   - `Topic` (`topics`), `Pregunta` (`questions`), `Option` (`question_options`)
   - `Feedback` (`feedback`), `GenerationJob` (`generation_jobs`)
-  - `legacy_id_map` — auditoría ObjectId de Mongo → PK de MySQL (solo migración)
-- **MongoDB**: ya no lo usa el runtime. Queda únicamente como fuente de lectura del migrador (`migration/`, perfil `migrate`) hasta completar el corte. No agregar entidades `@Document` nuevas.
-- **Jobs**: `generation_jobs` en MySQL; `GenerationJobCleanupService` borra los jobs de más de 24 h cada hora (reemplaza el TTL de Mongo).
-- **Tests**: H2 en memoria para unitarios/integración (`application-test.yml`, Flyway deshabilitado); las migraciones y el esquema real se validan contra MySQL en el ensayo de corte.
+  - `legacy_id_map` — auditoría histórica ObjectId → PK (no la usa el runtime)
+- **Jobs**: `generation_jobs` en MySQL; `GenerationJobCleanupService` borra los jobs de más de 24 h cada hora.
+- **Tests**: H2 en memoria para unitarios/integración (`application-test.yml`, Flyway deshabilitado); las migraciones y el esquema real se validan contra MySQL.
 
 Consecuencia: todo cambio de esquema requiere una migración Flyway nueva (`V4__...sql`) y actualizar la entidad; nunca `ddl-auto: update`.
 
@@ -91,7 +90,7 @@ Endpoints abiertos (sin JWT) están listados en `WebSecurityConfig` (`security/`
 ## Comandos
 
 ```bash
-# Desarrollo (levanta app + MySQL; mongo-db queda para el migrador legacy)
+# Desarrollo (levanta app + MySQL)
 docker-compose up --build -d
 
 # O solo la app (requiere DBs corriendo y .env presente)
@@ -112,7 +111,6 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 ## Configuración y secretos
 
 - Las variables se cargan desde `.env` (`spring.config.import: optional:file:.env[.properties]`) — plantilla en **`.env.template`**: `MYSQL_*`/`SPRING_DATASOURCE_*`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `JWT_EXPIRATION`, `GOOGLE_CLIENT_ID`, `MAIL_*`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (URL HTTPS pública del webhook), `MP_WEBHOOK_SECRET` (clave del panel para validar `x-signature`), `MP_PLAN_PRICE` (default `10000` ARS), `FE_DOMAIN`
-- `MONGO_*` solo se usa con el perfil `migrate` (migrador legacy). El runtime no lee Mongo.
 - En desarrollo usar credenciales **TEST** de Mercado Pago y un túnel HTTPS (ngrok/cloudflared) apuntando al backend para `MP_NOTIFICATION_URL`; `auto_return` solo se envía si `FE_DOMAIN` es HTTPS (Mercado Pago rechaza el checkout con back URLs `http://localhost`)
 - **El webhook `POST /suscriptions/payment` es público** (Mercado Pago no envía JWT): la autenticidad se valida con la firma `x-signature` y consultando el pago server-side. Si `MP_WEBHOOK_SECRET` está vacío, la validación de firma se omite (solo para desarrollo)
 - **Nunca** hardcodear secretos ni commitear `.env`; usar siempre variables de entorno
@@ -124,7 +122,6 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 - **Nuevo endpoint** → `controller/` (+ anotaciones Swagger) → lógica en `service/` → acceso a datos en `repository/`
 - **Nueva entidad MySQL** → `model/` con `@Entity` + repositorio JPA en `repository/`
 - **Cambio de esquema** → nueva migración Flyway en `src/main/resources/db/migration` + ajustar la entidad JPA (nunca `ddl-auto: update`)
-- **Entidad Mongo** → no agregar: el runtime usa solo MySQL; Mongo queda para el migrador legacy
 - **Configuración nueva** → `configuration/` (o `application*.yml` si es por perfil)
 - **Errores** → mensajes en `constants/Exceptions.java`, manejo en `exceptions/GlobalExceptionHandler.java`
 - **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/temperatura en `LLMConfig` + `application-{dev,prod}.yml`

@@ -22,11 +22,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-  data:
-    mongodb:
-      uri: mongodb://${MONGO_HOST}:${MONGO_PORT}/${MONGO_NAME}
-      auto-index-creation: true
-
 llm:
   apiKey: ${OPENAI_API_KEY}
   modelName: gpt-4o-mini

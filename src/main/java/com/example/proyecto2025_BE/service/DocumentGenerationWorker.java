@@ -72,7 +72,7 @@ public class DocumentGenerationWorker {
 
     /**
      * Serializa las actualizaciones para que los resúmenes en paralelo no
-     * escriban progreso desordenado en Mongo.
+     * escriban progreso desordenado.
      */
     private synchronized void updateProgress(GenerationJob job, int progress) {
         if (progress <= job.getProgress()) {

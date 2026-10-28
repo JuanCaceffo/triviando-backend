@@ -1,5 +1,8 @@
 # Runbook — corte a MySQL único
 
+> **Documento histórico del corte del 2026-10-27.** El runtime ya no usa Mongo;
+> se conserva como registro operativo. Las migraciones V1–V3 siguen vigentes.
+>
 > Rama: `migration/mysql` · Migraciones: V1/V2/V3 · Migrador: perfil `migrate`
 > Última actualización: 2026-10-27
 

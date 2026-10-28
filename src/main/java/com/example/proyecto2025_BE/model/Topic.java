@@ -17,8 +17,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Tópico de un usuario. Antes vivía repetido en cada pregunta de Mongo;
- * ahora el nombre y el emoji tienen una única fila.
+ * Tópico de un usuario. El nombre y el emoji tienen una única fila;
+ * antes estaban repetidos en cada pregunta.
  */
 @Data
 @Builder

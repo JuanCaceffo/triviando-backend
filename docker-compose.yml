@@ -9,7 +9,6 @@ services:
       - "8080:8080"
     depends_on:
       - mysql-db
-      - mongo-db
     networks:
       - flashcardsnet
 
@@ -24,22 +23,8 @@ services:
     networks:
       - flashcardsnet
 
-  # Solo para el migrador legacy (perfil `migrate`). Retirar después del corte.
-  mongo-db:
-    image: mongo:latest
-    container_name: mongo-db
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - flashcardsnet
-
-
 volumes:
   mysql_data:
-    driver: local
-  mongo_data:
     driver: local
 
 networks:
