@@ -30,6 +30,10 @@ jwt:
 google:
   client-id: test-client-id
 
+api:
+  rooms:
+    scheduler-enabled: false
+
 mercadopago:
   accessToken: TEST-token-de-pruebas
   feDomain: https://triviando.test

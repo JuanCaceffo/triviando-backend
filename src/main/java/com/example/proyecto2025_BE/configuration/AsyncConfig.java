@@ -31,6 +31,20 @@ public class AsyncConfig {
         return executor;
     }
 
+    @Bean(name = "roomGenerationExecutor")
+    public ThreadPoolTaskExecutor roomGenerationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("room-generation-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
     @Bean(name = "documentSummaryExecutor", destroyMethod = "shutdown")
     public ExecutorService documentSummaryExecutor() {
         return Executors.newFixedThreadPool(4, runnable -> {

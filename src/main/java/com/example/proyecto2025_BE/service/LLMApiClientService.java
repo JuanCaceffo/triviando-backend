@@ -35,6 +35,16 @@ public class LLMApiClientService {
 
     @Transactional
     public List<Topics> generate(Prompter prompter, Account role, Long userId) {
+        List<Question> validQuestions = generateQuestions(prompter, userId);
+        String emoji = prompter.getEmoji(assistant);
+        return saveAndMappingResponse(validQuestions, prompter, emoji);
+    }
+
+    /**
+     * Genera y deduplica preguntas sin persistir tópicos ni preguntas. Lo usan
+     * las salas efímeras, que guardan el resultado en sus propias tablas.
+     */
+    public List<Question> generateQuestions(Prompter prompter, Long userId) {
         prompter.withService(IQuestion);
         prompter.setUserId(userId);
         prompter.validatePrompt();
@@ -48,9 +58,7 @@ public class LLMApiClientService {
             validQuestions = requestQuestionsAvoidingDuplicates(prompter, existingEnunciados, validQuestions,
                     response.questions().size());
         }
-
-        String emoji = prompter.getEmoji(assistant);
-        return saveAndMappingResponse(validQuestions, prompter, emoji);
+        return validQuestions;
     }
 
     /**
