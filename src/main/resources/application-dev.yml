@@ -24,10 +24,11 @@ spring:
 
 llm:
   apiKey: ${OPENAI_API_KEY}
-  modelName: gpt-4o-mini
+  modelName: gpt-6-luna
+  reasoningEffort: medium
+  summarizerReasoningEffort: none
   logRequests: true
   logResponses: true
-  temperature: 0.7
 
 jwt:
   secret: ${JWT_SECRET_KEY}
