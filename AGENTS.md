@@ -11,7 +11,7 @@ Proyecto académico (UNSAM, grupo "Nullpointer"). El frontend vive en otro repo 
 ## Stack y arquitectura
 
 - **Java 21 + Spring Boot 3.4.3** (Maven, wrapper `mvnw`), puerto `8080`, context path **`/api/v1`**
-- **IA**: LangChain4j (`AiServices`) con OpenAI `gpt-4o-mini` (temperature 0, JSON schema estricto, chat memory de 10 mensajes)
+- **IA**: LangChain4j (`AiServices`) con OpenAI `gpt-6-luna` (`reasoningEffort: medium` en generación, `none` en el resumidor de documentos, JSON schema estricto, chat memory de 10 mensajes)
 - **Auth**: JWT (jjwt) + BCrypt + Google Sign-In; **Pagos**: MercadoPago; **Docs**: Swagger (`/api/v1/swagger-ui`)
 - **Perfiles**: `dev` (default), `prod`, `test` (`src/main/resources/application*.yml`)
 - **Despliegue**: `Dockerfile` + `docker-compose.yml` (app + mysql)
@@ -149,7 +149,7 @@ No hay linter/checkstyle configurado. CI: `.github/workflows/code-coverage.yml`.
 - **Cambio de esquema** → nueva migración Flyway en `src/main/resources/db/migration` + ajustar la entidad JPA (nunca `ddl-auto: update`)
 - **Configuración nueva** → `configuration/` (o `application*.yml` si es por perfil)
 - **Errores** → mensajes en `constants/Exceptions.java`, manejo en `exceptions/GlobalExceptionHandler.java`
-- **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/temperatura en `LLMConfig` + `application-{dev,prod}.yml`
+- **Cambiar el comportamiento del LLM** → system prompt en `constants/LLM.java`, modelo/reasoning effort en `LLMConfig` + `application-{dev,prod}.yml`
 
 ### Testing (obligatorio)
 - Todo cambio funcional debe llegar con tests: unitarios en `src/test/.../unittests/`, de integración en `integrationtests/` (siguiendo los patrones de los tests existentes)

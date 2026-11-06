@@ -27,6 +27,14 @@ jwt:
   secret: clavesecretaparatesteosgodines123432e
   expiration: 43200000
 
+llm:
+  apiKey: test-key
+  modelName: gpt-6-luna
+  reasoningEffort: medium
+  summarizerReasoningEffort: none
+  logRequests: false
+  logResponses: false
+
 google:
   client-id: test-client-id
 

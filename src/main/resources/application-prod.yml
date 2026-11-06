@@ -24,10 +24,11 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
 llm:
   apiKey: ${OPENAI_API_KEY}
-  modelName: gpt-4o-mini
+  modelName: gpt-6-luna
+  reasoningEffort: medium
+  summarizerReasoningEffort: none
   logRequests: false
   logResponses: false
-  temperature: 0.7
 
 api:
   questions:
