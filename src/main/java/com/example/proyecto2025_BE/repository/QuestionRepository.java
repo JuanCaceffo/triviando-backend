@@ -41,18 +41,24 @@ public interface QuestionRepository extends JpaRepository<Pregunta, Long> {
             @Param("topicId") Long topicId,
             @Param("userId") Long userId);
 
+    /**
+     * Cantidad de preguntas no respondidas por tópico del usuario.
+     * Parte del tópico (LEFT JOIN) para que los tópicos sin preguntas o con
+     * todas las preguntas respondidas aparezcan con cantidad 0.
+     * Orden: más reciente primero; el id desempata para que el orden sea estable.
+     */
     @Query("""
             SELECT t.name AS topic, t.emoji AS emoji, COUNT(p) AS cantidad
-            FROM Pregunta p
-            JOIN p.topic t
+            FROM Topic t
+            LEFT JOIN Pregunta p ON p.topic = t
+                AND NOT EXISTS (
+                    SELECT a.id
+                    FROM Answer a
+                    WHERE a.user.id = :userId AND a.questionId = p.id
+                )
             WHERE t.userId = :userId
-              AND NOT EXISTS (
-                  SELECT a.id
-                  FROM Answer a
-                  WHERE a.user.id = :userId AND a.questionId = p.id
-              )
-            GROUP BY t.id, t.name, t.emoji
-            ORDER BY t.name
+            GROUP BY t.id, t.name, t.emoji, t.createdAt
+            ORDER BY t.createdAt DESC, t.id DESC
             """)
     List<TopicCount> countUnansweredByTopic(@Param("userId") Long userId);
 

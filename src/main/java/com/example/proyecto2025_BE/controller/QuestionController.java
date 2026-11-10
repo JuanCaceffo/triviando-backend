@@ -75,7 +75,9 @@ public class QuestionController {
     @GetMapping("/topicos/{userId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Cuenta la cantidad de preguntas por tópico",
-            description = "Devuelve una lista con la cantidad de preguntas agrupadas por tópico.")
+            description = "Devuelve una lista con la cantidad de preguntas no respondidas agrupadas por tópico, " +
+                    "ordenada por fecha de creación descendente (el tópico más reciente primero). " +
+                    "Incluye los tópicos sin preguntas pendientes con cantidad 0.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Conteo obtenido exitosamente")
     })
